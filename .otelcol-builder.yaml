@@ -7,7 +7,17 @@ dist:
     output_path: ./ # the path to write the output (sources and binary). Optional.
     version: "1.0.0" # the version for your custom OpenTelemetry Collector. Optional.
 exporters:
-  - gomod: "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver main" # the Go module for the component. Required.
+  - import: go.opentelemetry.io/collector/exporter/loggingexporter
+    gomod: go.opentelemetry.io/collector v0.40.0
+receivers:
+  - import: go.opentelemetry.io/collector/receiver/otlpreceiver
+    gomod: go.opentelemetry.io/collector v0.40.0
+  - gomod: "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0" # the Go module for the component. Required.
+    import: github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver
     name: "polygonreceiver" # package name to use in the generated sources. Optional.
+    path: "./receiver/polygonreceiver" # the path to the component. Required.
+processors:
+  - import: go.opentelemetry.io/collector/processor/batchprocessor
+    gomod: go.opentelemetry.io/collector v0.40.0
 replaces:
   # a list of "replaces" directives that will be part of the resulting go.mod
