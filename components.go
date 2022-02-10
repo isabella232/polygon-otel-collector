@@ -4,10 +4,7 @@ package main
 
 import (
 	"go.opentelemetry.io/collector/component"
-	alibabacloudlogserviceexporter "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/alibabacloudlogserviceexporter"
-	loggingexporter "go.opentelemetry.io/collector/exporter/loggingexporter"
-	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
-	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
+	polygonreceiver "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver"
 )
 
 func components() (component.Factories, error) {
@@ -21,22 +18,19 @@ func components() (component.Factories, error) {
 	}
 
 	factories.Receivers, err = component.MakeReceiverFactoryMap(
-		otlpreceiver.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
 	}
 
 	factories.Exporters, err = component.MakeExporterFactoryMap(
-		alibabacloudlogserviceexporter.NewFactory(),
-		loggingexporter.NewFactory(),
+		polygonreceiver.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
 	}
 
 	factories.Processors, err = component.MakeProcessorFactoryMap(
-		batchprocessor.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
