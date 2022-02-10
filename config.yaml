@@ -3,6 +3,7 @@ receivers:
     protocols:
       grpc:
         endpoint: localhost:55680
+  polygon:
 
 processors:
 
@@ -14,6 +15,12 @@ service:
     traces:
       receivers:
         - otlp
+      processors: []
+      exporters:
+        - logging
+    metrics:
+      receivers:
+        - polygon
       processors: []
       exporters:
         - logging
