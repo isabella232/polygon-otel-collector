@@ -116,4 +116,4 @@ require (
 	gopkg.in/zorkian/go-datadog-api.v2 v2.30.0 // indirect
 )
 
-replace github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0 => /Users/vcastellm/src/github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver
+replace github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0 => ./receiver/polygonreceiver
