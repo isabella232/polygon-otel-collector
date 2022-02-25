@@ -5,9 +5,11 @@ package main
 import (
 	"go.opentelemetry.io/collector/component"
 	loggingexporter "go.opentelemetry.io/collector/exporter/loggingexporter"
+	datadogexporter "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter"
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 	polygonreceiver "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver"
+	influxdbreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver"
 )
 
 func components() (component.Factories, error) {
@@ -23,6 +25,7 @@ func components() (component.Factories, error) {
 	factories.Receivers, err = component.MakeReceiverFactoryMap(
 		otlpreceiver.NewFactory(),
 		polygonreceiver.NewFactory(),
+		influxdbreceiver.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
@@ -30,6 +33,7 @@ func components() (component.Factories, error) {
 
 	factories.Exporters, err = component.MakeExporterFactoryMap(
 		loggingexporter.NewFactory(),
+		datadogexporter.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
