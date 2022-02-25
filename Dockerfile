@@ -5,9 +5,8 @@ WORKDIR /app
 
 COPY go.mod ./
 COPY go.sum ./
-RUN go mod download
-
 COPY . ./
+RUN go mod download
 
 RUN go build -o /polygon-otel-collector
 
@@ -16,7 +15,7 @@ FROM scratch
 ARG USER_UID=10001
 USER ${USER_UID}
 
-COPY --from=prep /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY polygon-otel-collector /
 COPY polygon-config.yaml /etc/otel/config.yaml
 
