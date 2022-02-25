@@ -1,0 +1,66 @@
+{
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "inferenceAccelerators": [],
+    "containerDefinitions": [
+        {
+            "name": "polygon-otel-collector",
+            "image": "",
+            "resourceRequirements": null,
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": "8086",
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": "4317",
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": "55680",
+                    "protocol": "tcp"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "POLYGON_OTEL_COLLECTOR_DD_API_KEY",
+                    "valueFrom": "arn:aws:ssm:us-west-2:234346247508:parameter/polygon-otel-collector-dd-api-key"
+                }
+            ],
+            "mountPoints": null,
+            "volumesFrom": null,
+            "hostname": null,
+            "user": null,
+            "workingDirectory": null,
+            "extraHosts": null,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/polygon-otel-collector",
+                    "awslogs-region": "us-west-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "ulimits": null,
+            "dockerLabels": null,
+            "dependsOn": null,
+            "repositoryCredentials": {
+                "credentialsParameter": ""
+            }
+        }
+    ],
+    "volumes": [],
+    "networkMode": "awsvpc",
+    "memory": "1024",
+    "cpu": "512",
+    "executionRoleArn": "arn:aws:iam::234346247508:role/ecsTaskRoleEthstatsBackend",
+    "family": "ethstats-backend-taskdef",
+    "taskRoleArn": "arn:aws:iam::234346247508:role/ecsTaskRoleEthstatsBackend",
+    "runtimePlatform": {
+        "operatingSystemFamily": "LINUX"
+    },
+    "tags": [],
+    "placementConstraints": []
+}

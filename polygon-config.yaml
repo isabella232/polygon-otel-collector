@@ -3,12 +3,20 @@ receivers:
     protocols:
       grpc:
         endpoint: localhost:55680
+
   polygon:
+
+  influxdb:
+    endpoint: 0.0.0.0:8080
 
 processors:
 
 exporters:
   logging:
+
+  datadog:
+    api:
+      key: "${DD_API_KEY}"
 
 service:
   pipelines:
@@ -20,7 +28,8 @@ service:
         - logging
     metrics:
       receivers:
-        - polygon
+        - influxdb
       processors: []
       exporters:
         - logging
+        - datadog
