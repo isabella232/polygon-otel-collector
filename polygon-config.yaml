@@ -12,6 +12,7 @@ processors:
 
 exporters:
   logging:
+    loglevel: debug
 
   datadog:
     api:
