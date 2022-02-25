@@ -7,7 +7,6 @@ receivers:
   polygon:
 
   influxdb:
-    endpoint: 0.0.0.0:8080
 
 processors:
 
