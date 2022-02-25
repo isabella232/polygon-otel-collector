@@ -16,7 +16,7 @@ exporters:
 
   datadog:
     api:
-      key: "${DD_API_KEY}"
+      key: "${POLYGON_OTEL_COLLECTOR_DD_API_KEY}"
 
 service:
   pipelines:
