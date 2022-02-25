@@ -19,6 +19,9 @@ exporters:
       key: "${POLYGON_OTEL_COLLECTOR_DD_API_KEY}"
 
 service:
+  telemetry:
+    logs:
+      level: "debug"
   pipelines:
     traces:
       receivers:
