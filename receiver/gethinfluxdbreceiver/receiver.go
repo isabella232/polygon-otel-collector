@@ -29,8 +29,6 @@ import (
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/consumererror"
-
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sanitize"
 )
 
 type metricsReceiver struct {
@@ -114,7 +112,7 @@ func (r *metricsReceiver) handleWrite(w http.ResponseWriter, req *http.Request) 
 		var ok bool
 		if precision, ok = precisions[precisionStr]; !ok {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, "unrecognized precision '%s'", sanitize.String(precisionStr))
+			_, _ = fmt.Fprintf(w, "unrecognized precision '%s'", SanitizeString(precisionStr))
 			return
 		}
 	}

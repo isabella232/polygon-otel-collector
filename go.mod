@@ -5,9 +5,9 @@ module github.com/maticnetwork/polygon-otel-collector
 go 1.17
 
 require (
+	github.com/maticnetwork/polygon-otel-collector/receiver/gethinfluxdbreceiver v0.0.0
 	github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter v0.46.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver v0.46.0
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/collector v0.46.0
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
@@ -60,7 +60,6 @@ require (
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mostynb/go-grpc-compression v1.1.16 // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.46.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.46.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry v0.46.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
@@ -116,4 +115,6 @@ require (
 	gopkg.in/zorkian/go-datadog-api.v2 v2.30.0 // indirect
 )
 
-replace github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0 => /Users/vcastellm/src/github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver
+replace github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0 => ./receiver/polygonreceiver
+
+replace github.com/maticnetwork/polygon-otel-collector/receiver/gethinfluxdbreceiver v0.0.0 => ./receiver/gethinfluxdbreceiver

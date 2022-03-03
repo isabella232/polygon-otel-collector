@@ -19,7 +19,8 @@ receivers:
     import: github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver
     name: "polygonreceiver" # package name to use in the generated sources. Optional.
     path: "./receiver/polygonreceiver" # the path to the component. Required.
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver v0.46.0
+  - gomod: github.com/maticnetwork/polygon-otel-collector/receiver/gethinfluxdbreceiver v0.0.0
+    path: "./receiver/gethinfluxdbreceiver"
 processors:
   - import: go.opentelemetry.io/collector/processor/batchprocessor
     gomod: go.opentelemetry.io/collector v0.46.0

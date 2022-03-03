@@ -9,7 +9,7 @@ import (
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 	polygonreceiver "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver"
-	influxdbreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver"
+	gethinfluxdbreceiver "github.com/maticnetwork/polygon-otel-collector/receiver/gethinfluxdbreceiver"
 )
 
 func components() (component.Factories, error) {
@@ -25,7 +25,7 @@ func components() (component.Factories, error) {
 	factories.Receivers, err = component.MakeReceiverFactoryMap(
 		otlpreceiver.NewFactory(),
 		polygonreceiver.NewFactory(),
-		influxdbreceiver.NewFactory(),
+		gethinfluxdbreceiver.NewFactory(),
 	)
 	if err != nil {
 		return component.Factories{}, err
