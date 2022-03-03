@@ -3,25 +3,25 @@ dist:
     module: github.com/maticnetwork/polygon-otel-collector # the module name for the new distribution, following Go mod conventions. Optional, but recommended.
     name: polygon-otel-collector # the binary name. Optional.
     description: "Polygon OpenTelemetry Collector distribution" # a long name for the application. Optional.
-    otelcol_version: "0.44.0" # the OpenTelemetry Collector version to use as base for the distribution. Optional.
+    otelcol_version: "0.46.0" # the OpenTelemetry Collector version to use as base for the distribution. Optional.
     output_path: ./ # the path to write the output (sources and binary). Optional.
     version: "1.0.0" # the version for your custom OpenTelemetry Collector. Optional.
 exporters:
   - import: go.opentelemetry.io/collector/exporter/loggingexporter
-    gomod: go.opentelemetry.io/collector v0.44.0
+    gomod: go.opentelemetry.io/collector v0.46.0
   - import: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter
-    gomod: "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter v0.44.0"
+    gomod: "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter v0.46.0"
     name: datadogexporter
 receivers:
   - import: go.opentelemetry.io/collector/receiver/otlpreceiver
-    gomod: go.opentelemetry.io/collector v0.44.0
+    gomod: go.opentelemetry.io/collector v0.46.0
   - gomod: "github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver v0.0.0" # the Go module for the component. Required.
     import: github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver
     name: "polygonreceiver" # package name to use in the generated sources. Optional.
     path: "./receiver/polygonreceiver" # the path to the component. Required.
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver v0.44.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/influxdbreceiver v0.46.0
 processors:
   - import: go.opentelemetry.io/collector/processor/batchprocessor
-    gomod: go.opentelemetry.io/collector v0.44.0
+    gomod: go.opentelemetry.io/collector v0.46.0
 replaces:
   # a list of "replaces" directives that will be part of the resulting go.mod
