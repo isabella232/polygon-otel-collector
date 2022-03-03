@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/umbracle/go-web3/jsonrpc"
+	"github.com/umbracle/ethgo/jsonrpc"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/model/pdata"
