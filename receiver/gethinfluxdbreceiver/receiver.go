@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +70,7 @@ func (r *metricsReceiver) Start(_ context.Context, host component.Host) error {
 	router := http.NewServeMux()
 	router.HandleFunc("/write", r.handleWrite)        // InfluxDB 1.x
 	router.HandleFunc("/api/v2/write", r.handleWrite) // InfluxDB 2.x
+	router.HandleFunc("/health", r.handleHealth)
 
 	r.wg.Add(1)
 	r.server, err = r.httpServerSettings.ToServer(host, r.settings, router)
@@ -163,7 +165,13 @@ func (r *metricsReceiver) handleWrite(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		err = batch.AddPoint(string(measurement), tags, fields, ts, common.InfluxMetricValueTypeUntyped)
+		i2oType, i2oFields, err := convertGethMetrics(string(measurement), fields)
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "failed to convert metric on line %d: %s", line, err.Error())
+			return
+		}
+
+		err = batch.AddPoint(string(measurement), tags, i2oFields, ts, i2oType)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, "failed to append to the batch")
@@ -182,4 +190,50 @@ func (r *metricsReceiver) handleWrite(w http.ResponseWriter, req *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (r *metricsReceiver) handleHealth(w http.ResponseWriter, req *http.Request) {
+	_, _ = fmt.Fprintf(w, "healthy")
+	w.WriteHeader(http.StatusOK)
+}
+
+func convertGethMetrics(measurement string, fields map[string]interface{}) (common.InfluxMetricValueType, map[string]interface{}, error) {
+	sType := strings.SplitAfter(measurement, ".")
+	var vType common.InfluxMetricValueType
+	outFields := map[string]interface{}{}
+
+	switch sType[len(sType)-1] {
+	case "count":
+		outFields["count"] = fields["count"]
+		vType = common.InfluxMetricValueTypeSum
+
+	case "gauge":
+		outFields["gauge"] = fields["value"]
+		vType = common.InfluxMetricValueTypeGauge
+
+	case "histogram", "timer":
+		outFields["count"] = float64(fields["count"].(int64))
+		outFields["sum"] = fields["p9999"]
+		outFields["0.5"] = fields["p50"]
+		outFields["0.75"] = fields["p75"]
+		outFields["0.95"] = fields["p95"]
+		outFields["0.99"] = fields["p99"]
+		outFields["0.999"] = fields["p999"]
+		outFields["0.9999"] = fields["p9999"]
+		vType = common.InfluxMetricValueTypeSummary
+
+	case "meter":
+		outFields["gauge"] = fields["m1"]
+		vType = common.InfluxMetricValueTypeGauge
+
+	case "span":
+		outFields = fields
+		vType = common.InfluxMetricValueTypeUntyped
+
+	default:
+		outFields = fields
+		vType = common.InfluxMetricValueTypeUntyped
+	}
+
+	return vType, outFields, nil
 }

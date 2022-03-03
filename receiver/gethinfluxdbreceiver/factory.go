@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	typeStr = "influxdb"
+	typeStr = "gethinfluxdb"
 )
 
 func NewFactory() component.ReceiverFactory {
