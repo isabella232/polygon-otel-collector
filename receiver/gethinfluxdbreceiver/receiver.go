@@ -213,7 +213,7 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 
 	case "histogram", "timer":
 		outFields["count"] = float64(fields["count"].(int64))
-		outFields["sum"] = fields["p9999"]
+		outFields["sum"] = fields["p9999"] // TODO: add the sum to the client
 		outFields["0.5"] = fields["p50"]
 		outFields["0.75"] = fields["p75"]
 		outFields["0.95"] = fields["p95"]
@@ -227,8 +227,12 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 		vType = common.InfluxMetricValueTypeGauge
 
 	case "span":
-		outFields = fields
-		vType = common.InfluxMetricValueTypeUntyped
+		outFields["count"] = float64(fields["count"].(int64))
+		outFields["sum"] = fields["max"] // TODO: add the sum to the client
+		outFields["0.5"] = fields["p50"]
+		outFields["0.95"] = fields["p95"]
+		outFields["0.99"] = fields["p99"]
+		vType = common.InfluxMetricValueTypeSummary
 
 	default:
 		outFields = fields
