@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/consumererror"
+	"go.uber.org/zap"
 )
 
 type metricsReceiver struct {
@@ -177,6 +178,7 @@ func (r *metricsReceiver) handleWrite(w http.ResponseWriter, req *http.Request) 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, "failed to append to the batch")
+			r.logger.Debug("failed to append to the batch", zap.Error(err))
 			return
 		}
 	}
