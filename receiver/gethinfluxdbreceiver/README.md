@@ -30,6 +30,17 @@ receivers:
     token: myToken
 ```
 
+## Usage
+
+To use this receiver Bor/Geth should be configured with the following params:
+
+```
+--metrics.influxdbv2
+--metrics.influxdb.token [token]
+--metrics.influxdb.tags "comma=separated,tag=value"
+--metrics.influxdb.endpoint [receiver endpoint]
+```
+
 ## Definitions
 
 [InfluxDB](https://www.influxdata.com/products/influxdb/) is an open-source time series database.
