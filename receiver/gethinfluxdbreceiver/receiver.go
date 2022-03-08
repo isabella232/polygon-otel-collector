@@ -215,7 +215,7 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 
 	case "histogram", "timer":
 		outFields["count"] = float64(fields["count"].(int64))
-		outFields["sum"] = float64(fields["p9999"].(int64)) // TODO: add the sum to the client
+		outFields["sum"] = fields["p9999"] // TODO: add the sum to the client
 		outFields["0.5"] = fields["p50"]
 		outFields["0.75"] = fields["p75"]
 		outFields["0.95"] = fields["p95"]
