@@ -233,9 +233,9 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 	case "span":
 		outFields["count"] = float64(fields["count"].(int64))
 		outFields["sum"] = float64(fields["max"].(int64)) // TODO: add the sum to the client
-		outFields["0.5"] = fields["p50"]
-		outFields["0.95"] = fields["p95"]
-		outFields["0.99"] = fields["p99"]
+		outFields["0.5"] = float64(fields["p50"].(int64))
+		outFields["0.95"] = float64(fields["p95"].(int64))
+		outFields["0.99"] = float64(fields["p99"].(int64))
 		vType = common.InfluxMetricValueTypeSummary
 
 	default:
