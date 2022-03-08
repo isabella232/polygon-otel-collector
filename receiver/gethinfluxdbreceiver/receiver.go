@@ -178,7 +178,7 @@ func (r *metricsReceiver) handleWrite(w http.ResponseWriter, req *http.Request) 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, "failed to append to the batch")
-			r.logger.Debug("failed to append to the batch", zap.Error(err))
+			r.logger.Debug("failed to append to the batch", zap.Error(err), zap.String("measurement", string(measurement)))
 			return
 		}
 	}
