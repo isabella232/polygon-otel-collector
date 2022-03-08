@@ -1,11 +1,11 @@
-# InfluxDB Receiver
+# GethInfluxDB Receiver
 
-This receiver accepts metrics data as [InfluxDB Line Protocol](https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/).
+This receiver accepts metrics data as [InfluxDB v2 Line Protocol](https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/) and it's specially adapted to accept and convert go-ethereum client InfluxDB v2 metrics to be correctly parsed into `prometheus-v1` schema expected by [influx2otel](https://github.com/influxdata/influxdb-observability/tree/main/influx2otel) library.
 
 Supported pipeline types: metrics
 
-Write endpoints exist at `/write` (InfluxDB 1.x compatibility) and `/api/v2/write` (InfluxDB 2.x compatibility).
-Write query parameters `db`/`rp` (InfluxDB 1.x) and `org`/`bucket` (InfluxDB 2.x) are ignored.
+Write endpoints exist at `/api/v2/write` (InfluxDB 2.x compatibility).
+Write query parameters `org`/`bucket` (InfluxDB 2.x) are ignored.
 Write query parameter `precision` is optional, defaults to `ns`.
 
 Write responses:
@@ -18,6 +18,7 @@ Write responses:
 The following configuration options are supported:
 
 * `endpoint` (default = 0.0.0.0:8086) HTTP service endpoint for the line protocol receiver
+* `token` (default = "") Authentication token to control write access
 
 The full list of settings exposed for this receiver are documented in [config.go](config.go).
 
@@ -26,6 +27,7 @@ Example:
 receivers:
   influxdb:
     endpoint: 0.0.0.0:8080
+    token: myToken
 ```
 
 ## Definitions
@@ -37,6 +39,7 @@ Telegraf has [hundreds of plugins](https://www.influxdata.com/products/integrati
 
 [Line protocol](https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/) is a textual HTTP payload format used to move metrics between Telegraf agents and InfluxDB instances.
 
+[Ethereum Client]([https://github.com/ethereum/go-ethereum) Ethereum Go reference implementation.
 ## Schema
 
 The InfluxDB->OpenTelemetry conversion [schema](https://github.com/influxdata/influxdb-observability/blob/main/docs/index.md) and [implementation](https://github.com/influxdata/influxdb-observability/tree/main/influx2otel) are hosted at https://github.com/influxdata/influxdb-observability .
