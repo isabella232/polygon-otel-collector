@@ -70,7 +70,7 @@ func (r *metricsReceiver) Start(_ context.Context, host component.Host) error {
 	}
 
 	router := http.NewServeMux()
-	// router.HandleFunc("/write", r.handleWrite)        // This is not compatible with InfluxDB 1.x
+	// router.HandleFunc("/write", r.handleWrite) // This receiver is not compatible with InfluxDB 1.x
 	router.Handle("/api/v2/write", tokenAuthHandler(r.handleWrite, r.config)) // InfluxDB 2.x
 	router.HandleFunc("/health", r.handleHealth)
 
@@ -215,7 +215,7 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 
 	case "histogram", "timer":
 		outFields["count"] = float64(fields["count"].(int64))
-		outFields["sum"] = fields["p9999"] // TODO: add the sum to the client
+		outFields["sum"] = float64(fields["p9999"].(int64)) // TODO: add the sum to the client
 		outFields["0.5"] = fields["p50"]
 		outFields["0.75"] = fields["p75"]
 		outFields["0.95"] = fields["p95"]
@@ -230,7 +230,7 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 
 	case "span":
 		outFields["count"] = float64(fields["count"].(int64))
-		outFields["sum"] = fields["max"] // TODO: add the sum to the client
+		outFields["sum"] = float64(fields["max"].(int64)) // TODO: add the sum to the client
 		outFields["0.5"] = fields["p50"]
 		outFields["0.95"] = fields["p95"]
 		outFields["0.99"] = fields["p99"]
