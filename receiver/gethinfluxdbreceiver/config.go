@@ -23,4 +23,6 @@ import (
 type Config struct {
 	config.ReceiverSettings       `mapstructure:"-"`
 	confighttp.HTTPServerSettings `mapstructure:",squash"`
+
+	Token string `mapstructure:"token"`
 }

@@ -7,6 +7,7 @@ receivers:
   polygon:
 
   gethinfluxdb:
+    token: "${POLYGON_OTEL_COLLECTOR_INFLUXDB_TOKEN}"
 
 processors:
 

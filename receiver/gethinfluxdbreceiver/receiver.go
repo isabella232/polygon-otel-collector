@@ -35,6 +35,7 @@ import (
 type metricsReceiver struct {
 	nextConsumer       consumer.Metrics
 	httpServerSettings *confighttp.HTTPServerSettings
+	config             *Config
 	converter          *influx2otel.LineProtocolToOtelMetrics
 
 	server *http.Server
@@ -54,6 +55,7 @@ func newMetricsReceiver(config *Config, settings component.TelemetrySettings, ne
 	receiver := &metricsReceiver{
 		nextConsumer:       nextConsumer,
 		httpServerSettings: &config.HTTPServerSettings,
+		config:             config,
 		converter:          converter,
 		logger:             influxLogger,
 		settings:           settings,
@@ -68,8 +70,8 @@ func (r *metricsReceiver) Start(_ context.Context, host component.Host) error {
 	}
 
 	router := http.NewServeMux()
-	router.HandleFunc("/write", r.handleWrite)        // InfluxDB 1.x
-	router.HandleFunc("/api/v2/write", r.handleWrite) // InfluxDB 2.x
+	// router.HandleFunc("/write", r.handleWrite)        // This is not compatible with InfluxDB 1.x
+	router.Handle("/api/v2/write", tokenAuthHandler(r.handleWrite, r.config)) // InfluxDB 2.x
 	router.HandleFunc("/health", r.handleHealth)
 
 	r.wg.Add(1)
@@ -240,4 +242,24 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 	}
 
 	return vType, outFields, nil
+}
+
+func tokenAuthHandler(next http.HandlerFunc, config *Config) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.Token != "" {
+			auth := r.Header.Get("Authorization")
+
+			if auth == "" {
+				http.Error(w, "Authorization token not provided", http.StatusUnauthorized)
+				return
+			} else {
+				token := strings.TrimPrefix(auth, "Token ")
+				if token != config.Token {
+					http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
+					return
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
