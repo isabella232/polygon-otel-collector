@@ -27,6 +27,10 @@
                 {
                     "name": "POLYGON_OTEL_COLLECTOR_DD_API_KEY",
                     "valueFrom": "arn:aws:ssm:us-west-2:234346247508:parameter/polygon-otel-collector-dd-api-key"
+                },
+                {
+                    "name": "POLYGON_OTEL_COLLECTOR_INFLUXDB_TOKEN",
+                    "valueFrom": "arn:aws:ssm:us-west-2:234346247508:parameter/polygon-otel-collector/influxdb/token"
                 }
             ],
             "mountPoints": null,
