@@ -204,7 +204,7 @@ func convertGethMetrics(measurement string, fields map[string]interface{}) (comm
 
 	switch sType[len(sType)-1] {
 	case "count":
-		outFields["counter"] = fields["count"]
+		outFields["counter"] = fields["value"]
 		vType = common.InfluxMetricValueTypeSum
 
 	case "gauge":
