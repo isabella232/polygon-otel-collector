@@ -7,5 +7,5 @@ type Config struct {
 	scraperhelper.ScraperControllerSettings `mapstructure:",squash"`
 
 	// Lock down the encoding of the payload, leave empty for attribute based detection
-	Encoding string `mapstructure:"encoding"`
+	JsonRPCEndpoint string `mapstructure:"jsonrpc_endpoint"`
 }

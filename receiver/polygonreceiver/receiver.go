@@ -43,7 +43,7 @@ func newPolygonReceiver(
 }
 
 func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
-	client, err := jsonrpc.NewClient("https://polygon-mainnet.g.alchemy.com/v2/vvAT2dHbNSp3KYrdG_curFSVgHGl3Jd5")
+	client, err := jsonrpc.NewClient(r.config.JsonRPCEndpoint)
 	if err != nil {
 		panic(err)
 	}
