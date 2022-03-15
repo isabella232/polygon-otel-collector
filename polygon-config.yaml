@@ -5,6 +5,9 @@ receivers:
         endpoint: localhost:55680
 
   polygon:
+    jsonrpc_endpoint: "${JSONRPC_ENDPOINT}"
+    polygonscan_api_key: "${POLYGONSCAN_API_KEY}"
+    etherscan_api_key: "${ETHERSCAN_API_KEY}"
 
   gethinfluxdb:
     token: "${POLYGON_OTEL_COLLECTOR_INFLUXDB_TOKEN}"
@@ -33,6 +36,7 @@ service:
     metrics:
       receivers:
         - gethinfluxdb
+        - polygon
       processors: []
       exporters:
         - logging

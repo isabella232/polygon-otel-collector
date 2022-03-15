@@ -60,6 +60,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mostynb/go-grpc-compression v1.1.16 // indirect
+	github.com/nanmu42/etherscan-api v1.7.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.46.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry v0.46.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
