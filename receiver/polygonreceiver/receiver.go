@@ -2,6 +2,7 @@ package polygonreceiver
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver/internal/metadata"
@@ -62,6 +63,8 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	return nil
 }
 
+var prevBlock *ethgo.Block
+
 func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	md := pdata.NewMetrics()
 	ilm := md.ResourceMetrics().AppendEmpty().InstrumentationLibraryMetrics().AppendEmpty()
@@ -76,14 +79,21 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	if err != nil {
 		r.logger.Error("failed to get block", zap.Error(err))
 	}
-	prevBlock, err := r.client.Eth().GetBlockByNumber(ethgo.BlockNumber(number-1), true)
-	if err != nil {
-		r.logger.Error("failed to get previous block", zap.Error(err))
-	}
-	if block != nil && prevBlock != nil {
-		bd := time.Unix(int64(block.Timestamp), 0).Sub(time.Unix(int64(prevBlock.Timestamp), 0))
-		r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-mainnet")
-		r.mb.RecordPolygonLastBlockDataPoint(pdata.Timestamp(block.Timestamp), int64(number), "polygon-mainnet")
+	// prevBlock, err := r.client.Eth().GetBlockByNumber(ethgo.BlockNumber(number-1), true)
+	// if err != nil {
+	// 	r.logger.Error("failed to get previous block", zap.Error(err))
+	// }
+	if block != nil {
+		if prevBlock == nil {
+			prevBlock = block
+		}
+
+		if prevBlock != nil && block.Number > prevBlock.Number {
+			prevBlock = block
+			bd := now.AsTime().Sub(time.Unix(int64(prevBlock.Timestamp+10), 0))
+			r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-mainnet")
+		}
+		r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon-mainnet")
 	}
 
 	// Get latest checkpoint transaction
@@ -98,8 +108,18 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		r.logger.Error("failed to get transaction", zap.Error(err))
 	}
 
-	for _, tx := range txl {
-		r.mb.RecordPolygonSubmitCheckpointDataPoint(now, int64(tx.BlockNumber), "ethereum-mainnet")
+	// Sort by age, keeping original order or equal elements.
+	sort.SliceStable(txl, func(i, j int) bool {
+		return txl[i].BlockNumber > txl[j].BlockNumber
+	})
+
+	checkpoint := etherscan.NormalTx{}
+	if len(txl) > 0 {
+		checkpoint = txl[0]
+	}
+	if checkpoint.BlockNumber > 0 {
+		txd := now.AsTime().Sub(time.Time(checkpoint.TimeStamp))
+		r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 	}
 
 	r.mb.Emit(ilm.Metrics())

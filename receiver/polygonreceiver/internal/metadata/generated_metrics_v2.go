@@ -15,9 +15,9 @@ type MetricSettings struct {
 
 // MetricsSettings provides settings for polygonreceiver metrics.
 type MetricsSettings struct {
-	PolygonLastBlock        MetricSettings `mapstructure:"polygon.last_block"`
-	PolygonLastBlockTime    MetricSettings `mapstructure:"polygon.last_block_time"`
-	PolygonSubmitCheckpoint MetricSettings `mapstructure:"polygon.submit_checkpoint"`
+	PolygonLastBlock            MetricSettings `mapstructure:"polygon.last_block"`
+	PolygonLastBlockTime        MetricSettings `mapstructure:"polygon.last_block_time"`
+	PolygonSubmitCheckpointTime MetricSettings `mapstructure:"polygon.submit_checkpoint_time"`
 }
 
 func DefaultMetricsSettings() MetricsSettings {
@@ -28,7 +28,7 @@ func DefaultMetricsSettings() MetricsSettings {
 		PolygonLastBlockTime: MetricSettings{
 			Enabled: true,
 		},
-		PolygonSubmitCheckpoint: MetricSettings{
+		PolygonSubmitCheckpointTime: MetricSettings{
 			Enabled: true,
 		},
 	}
@@ -138,52 +138,50 @@ func newMetricPolygonLastBlockTime(settings MetricSettings) metricPolygonLastBlo
 	return m
 }
 
-type metricPolygonSubmitCheckpoint struct {
+type metricPolygonSubmitCheckpointTime struct {
 	data     pdata.Metric   // data buffer for generated metric.
 	settings MetricSettings // metric settings provided by user.
 	capacity int            // max observed number of data points added to the metric.
 }
 
-// init fills polygon.submit_checkpoint metric with initial data.
-func (m *metricPolygonSubmitCheckpoint) init() {
-	m.data.SetName("polygon.submit_checkpoint")
-	m.data.SetDescription("Latest checkpoint transaction.")
-	m.data.SetUnit("1")
-	m.data.SetDataType(pdata.MetricDataTypeSum)
-	m.data.Sum().SetIsMonotonic(false)
-	m.data.Sum().SetAggregationTemporality(pdata.MetricAggregationTemporalityCumulative)
-	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+// init fills polygon.submit_checkpoint_time metric with initial data.
+func (m *metricPolygonSubmitCheckpointTime) init() {
+	m.data.SetName("polygon.submit_checkpoint_time")
+	m.data.SetDescription("Latest checkpoint transaction time.")
+	m.data.SetUnit("seconds")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricPolygonSubmitCheckpoint) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+func (m *metricPolygonSubmitCheckpointTime) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val float64, chainAttributeValue string) {
 	if !m.settings.Enabled {
 		return
 	}
-	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
-	dp.SetIntVal(val)
+	dp.SetDoubleVal(val)
 	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricPolygonSubmitCheckpoint) updateCapacity() {
-	if m.data.Sum().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Sum().DataPoints().Len()
+func (m *metricPolygonSubmitCheckpointTime) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricPolygonSubmitCheckpoint) emit(metrics pdata.MetricSlice) {
-	if m.settings.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+func (m *metricPolygonSubmitCheckpointTime) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricPolygonSubmitCheckpoint(settings MetricSettings) metricPolygonSubmitCheckpoint {
-	m := metricPolygonSubmitCheckpoint{settings: settings}
+func newMetricPolygonSubmitCheckpointTime(settings MetricSettings) metricPolygonSubmitCheckpointTime {
+	m := metricPolygonSubmitCheckpointTime{settings: settings}
 	if settings.Enabled {
 		m.data = pdata.NewMetric()
 		m.init()
@@ -194,10 +192,10 @@ func newMetricPolygonSubmitCheckpoint(settings MetricSettings) metricPolygonSubm
 // MetricsBuilder provides an interface for scrapers to report metrics while taking care of all the transformations
 // required to produce metric representation defined in metadata and user settings.
 type MetricsBuilder struct {
-	startTime                     pdata.Timestamp
-	metricPolygonLastBlock        metricPolygonLastBlock
-	metricPolygonLastBlockTime    metricPolygonLastBlockTime
-	metricPolygonSubmitCheckpoint metricPolygonSubmitCheckpoint
+	startTime                         pdata.Timestamp
+	metricPolygonLastBlock            metricPolygonLastBlock
+	metricPolygonLastBlockTime        metricPolygonLastBlockTime
+	metricPolygonSubmitCheckpointTime metricPolygonSubmitCheckpointTime
 }
 
 // metricBuilderOption applies changes to default metrics builder.
@@ -212,10 +210,10 @@ func WithStartTime(startTime pdata.Timestamp) metricBuilderOption {
 
 func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
-		startTime:                     pdata.NewTimestampFromTime(time.Now()),
-		metricPolygonLastBlock:        newMetricPolygonLastBlock(settings.PolygonLastBlock),
-		metricPolygonLastBlockTime:    newMetricPolygonLastBlockTime(settings.PolygonLastBlockTime),
-		metricPolygonSubmitCheckpoint: newMetricPolygonSubmitCheckpoint(settings.PolygonSubmitCheckpoint),
+		startTime:                         pdata.NewTimestampFromTime(time.Now()),
+		metricPolygonLastBlock:            newMetricPolygonLastBlock(settings.PolygonLastBlock),
+		metricPolygonLastBlockTime:        newMetricPolygonLastBlockTime(settings.PolygonLastBlockTime),
+		metricPolygonSubmitCheckpointTime: newMetricPolygonSubmitCheckpointTime(settings.PolygonSubmitCheckpointTime),
 	}
 	for _, op := range options {
 		op(mb)
@@ -229,7 +227,7 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
 	mb.metricPolygonLastBlock.emit(metrics)
 	mb.metricPolygonLastBlockTime.emit(metrics)
-	mb.metricPolygonSubmitCheckpoint.emit(metrics)
+	mb.metricPolygonSubmitCheckpointTime.emit(metrics)
 }
 
 // RecordPolygonLastBlockDataPoint adds a data point to polygon.last_block metric.
@@ -242,9 +240,9 @@ func (mb *MetricsBuilder) RecordPolygonLastBlockTimeDataPoint(ts pdata.Timestamp
 	mb.metricPolygonLastBlockTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
-// RecordPolygonSubmitCheckpointDataPoint adds a data point to polygon.submit_checkpoint metric.
-func (mb *MetricsBuilder) RecordPolygonSubmitCheckpointDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
-	mb.metricPolygonSubmitCheckpoint.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+// RecordPolygonSubmitCheckpointTimeDataPoint adds a data point to polygon.submit_checkpoint_time metric.
+func (mb *MetricsBuilder) RecordPolygonSubmitCheckpointTimeDataPoint(ts pdata.Timestamp, val float64, chainAttributeValue string) {
+	mb.metricPolygonSubmitCheckpointTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // Reset resets metrics builder to its initial state. It should be used when external metrics source is restarted,

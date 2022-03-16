@@ -10,7 +10,7 @@ These are the metrics available for this scraper.
 | ---- | ----------- | ---- | ---- | ---------- |
 | **polygon.last_block** | The current block number. | block | Sum(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.last_block_time** | The average block time. | milliseconds | Gauge(Int) | <ul> <li>chain</li> </ul> |
-| **polygon.submit_checkpoint** | Latest checkpoint transaction. | 1 | Sum(Int) | <ul> <li>chain</li> </ul> |
+| **polygon.submit_checkpoint_time** | Latest checkpoint transaction time. | seconds | Gauge(Double) | <ul> <li>chain</li> </ul> |
 
 **Highlighted metrics** are emitted by default. Other metrics are optional and not emitted by default.
 Any metric can be enabled or disabled with the following scraper configuration:

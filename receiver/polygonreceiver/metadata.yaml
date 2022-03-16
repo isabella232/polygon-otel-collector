@@ -15,14 +15,12 @@ metrics:
       monotonic: false
     attributes: [chain]
 
-  polygon.submit_checkpoint:
+  polygon.submit_checkpoint_time:
     enabled: true
-    description: Latest checkpoint transaction.
-    unit: 1
-    sum:
-      value_type: int
-      aggregation: cumulative
-      monotonic: false
+    description: Latest checkpoint transaction time.
+    unit: seconds
+    gauge:
+      value_type: double
     attributes: [chain]
   
   polygon.last_block_time:
