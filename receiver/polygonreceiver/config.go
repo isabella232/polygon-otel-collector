@@ -7,7 +7,8 @@ type Config struct {
 	scraperhelper.ScraperControllerSettings `mapstructure:",squash"`
 
 	// Lock down the encoding of the payload, leave empty for attribute based detection
-	JsonRPCEndpoint   string `mapstructure:"jsonrpc_endpoint"`
-	EtherscanAPIKey   string `mapstructure:"etherscan_api_key"`
-	PolygonscanAPIKey string `mapstructure:"polygonscan_api_key"`
+	EthereumJsonRPCEndpoint string `mapstructure:"ethereum_jsonrpc_endpoint"`
+	PolygonJsonRPCEndpoint  string `mapstructure:"polygon_jsonrpc_endpoint"`
+	EtherscanAPIKey         string `mapstructure:"etherscan_api_key"`
+	PolygonscanAPIKey       string `mapstructure:"polygonscan_api_key"`
 }

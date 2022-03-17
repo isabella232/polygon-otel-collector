@@ -2,12 +2,14 @@ package polygonreceiver
 
 import (
 	"context"
+	"net/http"
 	"sort"
 	"time"
 
 	"github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver/internal/metadata"
 	"github.com/nanmu42/etherscan-api"
 	"github.com/umbracle/ethgo"
+	"github.com/umbracle/ethgo/abi"
 	"github.com/umbracle/ethgo/jsonrpc"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
@@ -20,7 +22,8 @@ import (
 type polygonReceiver struct {
 	config            *Config
 	settings          component.ReceiverCreateSettings
-	client            *jsonrpc.Client
+	polygonClient     *jsonrpc.Client
+	ethClient         *jsonrpc.Client
 	polygonscanClient *etherscan.Client
 	etherscanClient   *etherscan.Client
 	logger            *zap.SugaredLogger
@@ -49,11 +52,18 @@ func newPolygonReceiver(
 }
 
 func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
-	client, err := jsonrpc.NewClient(r.config.JsonRPCEndpoint)
+	ec, err := jsonrpc.NewClient(r.config.EthereumJsonRPCEndpoint)
 	if err != nil {
 		panic(err)
 	}
-	r.client = client
+	r.ethClient = ec
+
+	pc, err := jsonrpc.NewClient(r.config.PolygonJsonRPCEndpoint)
+	if err != nil {
+		panic(err)
+	}
+	r.polygonClient = pc
+
 	r.polygonscanClient = etherscan.NewCustomized(etherscan.Customization{
 		Key:     r.config.PolygonscanAPIKey,
 		BaseURL: "https://api.polygonscan.com/api?",
@@ -63,63 +73,68 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	return nil
 }
 
-var prevBlock *ethgo.Block
-
 func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	md := pdata.NewMetrics()
 	ilm := md.ResourceMetrics().AppendEmpty().InstrumentationLibraryMetrics().AppendEmpty()
 	ilm.InstrumentationLibrary().SetName("otelcol/polygon")
 	now := pdata.NewTimestampFromTime(time.Now())
 
-	number, err := r.client.Eth().BlockNumber()
+	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
 	}
-	block, err := r.client.Eth().GetBlockByNumber(ethgo.BlockNumber(number), true)
+	block, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number), true)
 	if err != nil {
 		r.logger.Error("failed to get block", zap.Error(err))
 	}
-	// prevBlock, err := r.client.Eth().GetBlockByNumber(ethgo.BlockNumber(number-1), true)
-	// if err != nil {
-	// 	r.logger.Error("failed to get previous block", zap.Error(err))
-	// }
-	if block != nil {
-		if prevBlock == nil {
-			prevBlock = block
-		}
-
-		if prevBlock != nil && block.Number > prevBlock.Number {
-			prevBlock = block
-			bd := now.AsTime().Sub(time.Unix(int64(prevBlock.Timestamp+10), 0))
-			r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-mainnet")
-		}
-		r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon-mainnet")
+	prevBlock, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number-1), true)
+	if err != nil {
+		r.logger.Error("failed to get previous block", zap.Error(err))
 	}
 
+	if block != nil && prevBlock != nil {
+		bd := time.Unix(int64(block.Timestamp), 0).Sub(time.Unix(int64(prevBlock.Timestamp), 0))
+		r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-mainnet")
+	}
+	r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon-mainnet")
+
 	// Get latest checkpoint transaction
-	bn, err := r.etherscanClient.BlockNumber(now.AsTime().Unix(), "before")
+	bn, err := r.ethClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
 	}
 
-	sb := bn - 1000
-	txl, err := r.etherscanClient.NormalTxByAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287", &sb, &bn, 1, 0, true)
+	txd := now.AsTime().Sub(time.Time(checkpoint.TimeStamp))
+	r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+
+	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
+
+	bnp := ethgo.BlockNumber(bn - 1000)
+	lbp := ethgo.Latest
+
+	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
+		From:    &bnp,
+		To:      &lbp,
+		Address: []ethgo.Address{ethgo.BytesToAddress([]byte("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287"))},
+		Topics:  [][]*ethgo.Hash{checkpointEventSig.ID()},
+	})
 	if err != nil {
-		r.logger.Error("failed to get transaction", zap.Error(err))
+		r.logger.Error("failed to get logs", zap.Error(err))
 	}
 
 	// Sort by age, keeping original order or equal elements.
-	sort.SliceStable(txl, func(i, j int) bool {
-		return txl[i].BlockNumber > txl[j].BlockNumber
+	sort.SliceStable(logs, func(i, j int) bool {
+		return l[i].BlockNumber > l[j].BlockNumber
 	})
 
-	checkpoint := etherscan.NormalTx{}
-	if len(txl) > 0 {
-		checkpoint = txl[0]
+	for _, l := range logs {
+
 	}
-	if checkpoint.BlockNumber > 0 {
-		txd := now.AsTime().Sub(time.Time(checkpoint.TimeStamp))
-		r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+
+	// Get checkpoint signatures
+	_, err = http.Get("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/")
+	if err != nil {
+		r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
 	}
 
 	r.mb.Emit(ilm.Metrics())
