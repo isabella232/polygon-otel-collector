@@ -220,7 +220,7 @@ func (r *polygonReceiver) checkpointSignaturesDatadogEvent(signedCount int64) er
 
 func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timestamp) {
 	// Get heimdall unconfirmed transactions
-	res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/transactions/unconfirmed"))
+	res, err := http.Get(fmt.Sprintf("https://tendermint.api.matic.network/num_unconfirmed_txs"))
 	if err != nil {
 		r.logger.Error("failed to get unconfirmed transactions", zap.Error(err))
 		return
