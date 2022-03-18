@@ -128,58 +128,57 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		Address: []ethgo.Address{ethgo.HexToAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287")},
 		Topics:  [][]*ethgo.Hash{topics},
 	})
-	if err != nil {
+	if err == nil {
+		// Sort by age, keeping original order or equal elements.
+		sort.SliceStable(logs, func(i, j int) bool {
+			return logs[i].BlockNumber > logs[j].BlockNumber
+		})
+
+		event, err := checkpointEventSig.ParseLog(logs[1])
+		if err != nil {
+			r.logger.Error("failed to parse log", zap.Error(err))
+		}
+
+		hbi := event["headerBlockId"].(*big.Int)
+		hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
+
+		////
+		// b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(14410147), true)
+		// txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
+		// r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+		////
+
+		// Get checkpoint signatures
+		res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
+		if err != nil {
+			r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
+		}
+		defer res.Body.Close()
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
+		}
+
+		signatures := &CheckpointSignatures{}
+		err = json.Unmarshal(body, &signatures)
+		if err != nil {
+			r.logger.Error("failed to unmarshal checkpoint signatures", zap.Error(err))
+		}
+		var signedCount int64
+		for _, signature := range signatures.Result {
+			if signature.HasSigned {
+				signedCount++
+			}
+		}
+		r.mb.RecordPolygonCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
+
+		if signedCount < 90 {
+			r.checkpointSignatures(signedCount)
+		}
+
+	} else {
 		r.logger.Error("failed to get logs", zap.Error(err))
 	}
-
-	// Sort by age, keeping original order or equal elements.
-	sort.SliceStable(logs, func(i, j int) bool {
-		return logs[i].BlockNumber > logs[j].BlockNumber
-	})
-
-	event, err := checkpointEventSig.ParseLog(logs[1])
-	if err != nil {
-		r.logger.Error("failed to parse log", zap.Error(err))
-	}
-
-	hbi := event["headerBlockId"].(*big.Int)
-	hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
-
-	////
-	b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(14410147), true)
-	txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-	r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
-	////
-
-	// Get checkpoint signatures
-	res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
-	if err != nil {
-		r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
-	}
-
-	signatures := &CheckpointSignatures{}
-	err = json.Unmarshal(body, &signatures)
-	if err != nil {
-		r.logger.Error("failed to unmarshal checkpoint signatures", zap.Error(err))
-	}
-	var signedCount int64
-	for _, signature := range signatures.Result {
-		if signature.HasSigned {
-			signedCount++
-		}
-	}
-	r.mb.RecordPolygonCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
-
-	if signedCount < 90 {
-		r.checkpointSignatures(signedCount)
-	}
-
-	////****************
 
 	r.mb.Emit(ilm.Metrics())
 
