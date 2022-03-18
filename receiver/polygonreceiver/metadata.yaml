@@ -1,0 +1,40 @@
+name: polygonreceiver
+
+attributes:
+  chain:
+    description: The name of a chain.
+
+metrics:
+  polygon.last_block:
+    enabled: true
+    description: The current block number.
+    unit: block
+    sum:
+      value_type: int
+      aggregation: cumulative
+      monotonic: false
+    attributes: [chain]
+
+  polygon.submit_checkpoint_time:
+    enabled: true
+    description: Latest checkpoint transaction time.
+    unit: seconds
+    gauge:
+      value_type: double
+    attributes: [chain]
+
+  polygon.checkpoint_validators_signed:
+    enabled: true
+    description: Number of validators who signed last checkpoint.
+    # unit: seconds
+    gauge:
+      value_type: int
+    attributes: [chain]
+  
+  polygon.last_block_time:
+    enabled: true
+    description: The average block time.
+    unit: milliseconds
+    gauge:
+      value_type: int
+    attributes: [chain]
