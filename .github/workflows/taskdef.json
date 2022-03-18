@@ -25,7 +25,7 @@
             ],
             "environment": [
                 {
-                    "name": "JSONRPC_ENDPOINT",
+                    "name": "POLYGON_JSONRPC_ENDPOINT",
                     "value": "https://polygon-rpc.com"
                 }
             ],
@@ -45,6 +45,10 @@
                 {
                     "name": "ETHERSCAN_API_KEY",
                     "valueFrom": "arn:aws:ssm:us-west-2:234346247508:parameter/polygon-otel-collector/polygon/etherscan_api_key"
+                },
+                {
+                    "name": "ETHEREUM_JSONRPC_ENDPOINT",
+                    "value": "arn:aws:ssm:us-west-2:234346247508:parameter/polygon-otel-collector/polygon/ethereum_jsonrpc_endpoint"
                 }
             ],
             "mountPoints": null,
