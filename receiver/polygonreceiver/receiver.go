@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -239,6 +240,17 @@ func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timest
 		return
 	}
 
-	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, transactions.Result.Ntxs, r.config.Chain)
-	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, transactions.Result.Total, r.config.Chain)
+	utxs, err := strconv.ParseInt(transactions.Result.Ntxs, 10, 64)
+	if err != nil {
+		r.logger.Error("failed to parse unconfirmed transactions", zap.Error(err))
+		return
+	}
+	ttxs, err := strconv.ParseInt(transactions.Result.Total, 10, 64)
+	if err != nil {
+		r.logger.Error("failed to parse total transactions", zap.Error(err))
+		return
+	}
+
+	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, r.config.Chain)
+	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, r.config.Chain)
 }

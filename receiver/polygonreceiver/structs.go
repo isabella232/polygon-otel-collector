@@ -12,7 +12,7 @@ type CheckpointSignatures struct {
 
 type HeimdallUnconfirmedTransactions struct {
 	Result struct {
-		Ntxs  int64 `json:"n_txs"`
-		Total int64 `json:"total"`
+		Ntxs  string `json:"n_txs"`
+		Total string `json:"total"`
 	} `json:"result"`
 }
