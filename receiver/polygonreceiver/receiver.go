@@ -108,7 +108,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	}
 	r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon-mainnet")
 
-	// Get latest checkpoint transaction
+	// Get logs for the latest checkpoint transaction
 	bn, err := r.ethClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
@@ -119,7 +119,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
 
 	bnp := ethgo.BlockNumber(bn - 1000)
-	lbp := ethgo.Latest
+	lbp := ethgo.BlockNumber(bn)
 	h := checkpointEventSig.ID()
 	topics := []*ethgo.Hash{&h}
 	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
@@ -146,9 +146,9 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
 
 	////
-	//b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(logs[1].BlockNumber), true)
-	//txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-	//r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+	b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(14410147), true)
+	txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
+	r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 	////
 
 	// Get checkpoint signatures
