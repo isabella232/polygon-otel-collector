@@ -91,6 +91,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 
 	r.recordLastBlockMetrics(now)
 	r.recordCheckpointMetrics(now)
+	r.recordHeimdallUnconfirmedTransactions(now)
 
 	r.mb.Emit(ilm.Metrics())
 
@@ -215,4 +216,29 @@ func (r *polygonReceiver) checkpointSignaturesDatadogEvent(signedCount int64) er
 	}
 
 	return nil
+}
+
+func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timestamp) {
+	// Get heimdall unconfirmed transactions
+	res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/transactions/unconfirmed"))
+	if err != nil {
+		r.logger.Error("failed to get unconfirmed transactions", zap.Error(err))
+		return
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		r.logger.Error("failed to read unconfirmed transactions", zap.Error(err))
+		return
+	}
+
+	transactions := &HeimdallUnconfirmedTransactions{}
+	err = json.Unmarshal(body, &transactions)
+	if err != nil {
+		r.logger.Error("failed to unmarshal unconfirmed transactions", zap.Error(err))
+		return
+	}
+
+	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, transactions.Result.Ntxs, r.config.Chain)
+	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, transactions.Result.Total, r.config.Chain)
 }

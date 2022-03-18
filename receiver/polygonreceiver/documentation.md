@@ -9,6 +9,8 @@ These are the metrics available for this scraper.
 | Name | Description | Unit | Type | Attributes |
 | ---- | ----------- | ---- | ---- | ---------- |
 | **polygon.checkpoint_validators_signed** | Number of validators who signed last checkpoint. |  | Gauge(Int) | <ul> <li>chain</li> </ul> |
+| **polygon.heimdall.total_txs** | Total number of transactions. | txs | Gauge(Int) | <ul> <li>chain</li> </ul> |
+| **polygon.heimdall.unconfirmed_txs** | Number of unconfirmed transactions. | txs | Gauge(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.last_block** | The current block number. | block | Sum(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.last_block_time** | The average block time. | milliseconds | Gauge(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.submit_checkpoint_time** | Latest checkpoint transaction time. | seconds | Gauge(Double) | <ul> <li>chain</li> </ul> |

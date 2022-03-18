@@ -1,3 +1,4 @@
+# mdatagen -experimental-gen metadata.yaml 
 name: polygonreceiver
 
 attributes:
@@ -35,6 +36,22 @@ metrics:
     enabled: true
     description: The average block time.
     unit: milliseconds
+    gauge:
+      value_type: int
+    attributes: [chain]
+
+  polygon.heimdall.unconfirmed_txs:
+    enabled: true
+    description: Number of unconfirmed transactions.
+    unit: txs
+    gauge:
+      value_type: int
+    attributes: [chain]
+  
+  polygon.heimdall.total_txs:
+    enabled: true
+    description: Total number of transactions.
+    unit: txs
     gauge:
       value_type: int
     attributes: [chain]
