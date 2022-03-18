@@ -89,6 +89,15 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	ilm.InstrumentationLibrary().SetName("otelcol/polygon")
 	now := pdata.NewTimestampFromTime(time.Now())
 
+	r.recordLastBlockMetrics(now)
+	r.recordCheckpointMetrics(now)
+
+	r.mb.Emit(ilm.Metrics())
+
+	return md, nil
+}
+
+func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp) {
 	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
@@ -104,17 +113,18 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 
 	if block != nil && prevBlock != nil {
 		bd := time.Unix(int64(block.Timestamp), 0).Sub(time.Unix(int64(prevBlock.Timestamp), 0))
-		r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-mainnet")
+		r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-"+r.config.Chain)
 	}
-	r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon-mainnet")
+	r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
+}
 
+func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 	// Get logs for the latest checkpoint transaction
 	bn, err := r.ethClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
+		return
 	}
-
-	////*******************
 
 	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
 
@@ -137,32 +147,36 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		event, err := checkpointEventSig.ParseLog(logs[1])
 		if err != nil {
 			r.logger.Error("failed to parse log", zap.Error(err))
+			return
 		}
 
 		hbi := event["headerBlockId"].(*big.Int)
 		hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
 
 		////
-		// b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(14410147), true)
-		// txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-		// r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+		b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(logs[1].BlockNumber), true)
+		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
+		r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 		////
 
 		// Get checkpoint signatures
 		res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
 		if err != nil {
 			r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
+			return
 		}
 		defer res.Body.Close()
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
+			return
 		}
 
 		signatures := &CheckpointSignatures{}
 		err = json.Unmarshal(body, &signatures)
 		if err != nil {
 			r.logger.Error("failed to unmarshal checkpoint signatures", zap.Error(err))
+			return
 		}
 		var signedCount int64
 		for _, signature := range signatures.Result {
@@ -173,19 +187,15 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		r.mb.RecordPolygonCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
 
 		if signedCount < 90 {
-			r.checkpointSignatures(signedCount)
+			r.checkpointSignaturesDatadogEvent(signedCount)
 		}
 
 	} else {
 		r.logger.Error("failed to get logs", zap.Error(err))
 	}
-
-	r.mb.Emit(ilm.Metrics())
-
-	return md, nil
 }
 
-func (r *polygonReceiver) checkpointSignatures(signedCount int64) error {
+func (r *polygonReceiver) checkpointSignaturesDatadogEvent(signedCount int64) error {
 	body := datadog.EventCreateRequest{
 		Title: "The number of validators who have signed the checkpoint is less than 90",
 		Text:  "Check the validators.",
