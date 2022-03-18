@@ -22,6 +22,14 @@ metrics:
     gauge:
       value_type: double
     attributes: [chain]
+
+  polygon.checkpoint_validators_signed:
+    enabled: true
+    description: Number of validators who signed last checkpoint.
+    # unit: seconds
+    gauge:
+      value_type: int
+    attributes: [chain]
   
   polygon.last_block_time:
     enabled: true
@@ -30,4 +38,3 @@ metrics:
     gauge:
       value_type: int
     attributes: [chain]
-

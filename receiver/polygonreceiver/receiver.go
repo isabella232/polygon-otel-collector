@@ -2,10 +2,16 @@ package polygonreceiver
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math/big"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
+	datadog "github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	"github.com/maticnetwork/polygon-otel-collector/receiver/polygonreceiver/internal/metadata"
 	"github.com/nanmu42/etherscan-api"
 	"github.com/umbracle/ethgo"
@@ -28,6 +34,7 @@ type polygonReceiver struct {
 	etherscanClient   *etherscan.Client
 	logger            *zap.SugaredLogger
 	mb                *metadata.MetricsBuilder
+	ddAPIClient       *datadog.APIClient
 }
 
 // newPolygonReceiver creates the Polygon receiver with the given parameters.
@@ -70,6 +77,9 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	})
 	r.etherscanClient = etherscan.New(etherscan.Mainnet, r.config.EtherscanAPIKey)
 
+	configuration := datadog.NewConfiguration()
+	r.ddAPIClient = datadog.NewAPIClient(configuration)
+
 	return nil
 }
 
@@ -104,19 +114,19 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		r.logger.Error("failed to get block number", zap.Error(err))
 	}
 
-	txd := now.AsTime().Sub(time.Time(checkpoint.TimeStamp))
-	r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+	////*******************
 
 	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
 
 	bnp := ethgo.BlockNumber(bn - 1000)
 	lbp := ethgo.Latest
-
+	h := checkpointEventSig.ID()
+	topics := []*ethgo.Hash{&h}
 	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
 		From:    &bnp,
 		To:      &lbp,
-		Address: []ethgo.Address{ethgo.BytesToAddress([]byte("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287"))},
-		Topics:  [][]*ethgo.Hash{checkpointEventSig.ID()},
+		Address: []ethgo.Address{ethgo.HexToAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287")},
+		Topics:  [][]*ethgo.Hash{topics},
 	})
 	if err != nil {
 		r.logger.Error("failed to get logs", zap.Error(err))
@@ -124,20 +134,76 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 
 	// Sort by age, keeping original order or equal elements.
 	sort.SliceStable(logs, func(i, j int) bool {
-		return l[i].BlockNumber > l[j].BlockNumber
+		return logs[i].BlockNumber > logs[j].BlockNumber
 	})
 
-	for _, l := range logs {
-
+	event, err := checkpointEventSig.ParseLog(logs[1])
+	if err != nil {
+		r.logger.Error("failed to parse log", zap.Error(err))
 	}
 
+	hbi := event["headerBlockId"].(*big.Int)
+	hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
+
+	////
+	//b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(logs[1].BlockNumber), true)
+	//txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
+	//r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+	////
+
 	// Get checkpoint signatures
-	_, err = http.Get("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/")
+	res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
 	if err != nil {
 		r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
 	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
+	}
+
+	signatures := &CheckpointSignatures{}
+	err = json.Unmarshal(body, &signatures)
+	if err != nil {
+		r.logger.Error("failed to unmarshal checkpoint signatures", zap.Error(err))
+	}
+	var signedCount int64
+	for _, signature := range signatures.Result {
+		if signature.HasSigned {
+			signedCount++
+		}
+	}
+	r.mb.RecordPolygonCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
+
+	if signedCount < 90 {
+		r.checkpointSignatures(signedCount)
+	}
+
+	////****************
 
 	r.mb.Emit(ilm.Metrics())
 
 	return md, nil
+}
+
+func (r *polygonReceiver) checkpointSignatures(signedCount int64) error {
+	body := datadog.EventCreateRequest{
+		Title: "The number of validators who have signed the checkpoint is less than 90",
+		Text:  "Check the validators.",
+		Tags: &[]string{
+			"test:ExamplePostaneventreturnsOKresponse",
+		},
+	}
+	ctx := context.WithValue(context.Background(), datadog.ContextAPIKeys, map[string]datadog.APIKey{
+		"apiKeyAuth": {
+			Key: r.config.DatadogAPIKey,
+		},
+	})
+
+	_, _, err := r.ddAPIClient.EventsApi.CreateEvent(ctx, body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

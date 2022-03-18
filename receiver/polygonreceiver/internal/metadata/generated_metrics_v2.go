@@ -15,13 +15,17 @@ type MetricSettings struct {
 
 // MetricsSettings provides settings for polygonreceiver metrics.
 type MetricsSettings struct {
-	PolygonLastBlock            MetricSettings `mapstructure:"polygon.last_block"`
-	PolygonLastBlockTime        MetricSettings `mapstructure:"polygon.last_block_time"`
-	PolygonSubmitCheckpointTime MetricSettings `mapstructure:"polygon.submit_checkpoint_time"`
+	PolygonCheckpointValidatorsSigned MetricSettings `mapstructure:"polygon.checkpoint_validators_signed"`
+	PolygonLastBlock                  MetricSettings `mapstructure:"polygon.last_block"`
+	PolygonLastBlockTime              MetricSettings `mapstructure:"polygon.last_block_time"`
+	PolygonSubmitCheckpointTime       MetricSettings `mapstructure:"polygon.submit_checkpoint_time"`
 }
 
 func DefaultMetricsSettings() MetricsSettings {
 	return MetricsSettings{
+		PolygonCheckpointValidatorsSigned: MetricSettings{
+			Enabled: true,
+		},
 		PolygonLastBlock: MetricSettings{
 			Enabled: true,
 		},
@@ -32,6 +36,57 @@ func DefaultMetricsSettings() MetricsSettings {
 			Enabled: true,
 		},
 	}
+}
+
+type metricPolygonCheckpointValidatorsSigned struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.checkpoint_validators_signed metric with initial data.
+func (m *metricPolygonCheckpointValidatorsSigned) init() {
+	m.data.SetName("polygon.checkpoint_validators_signed")
+	m.data.SetDescription("Number of validators who signed last checkpoint.")
+	m.data.SetUnit("")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonCheckpointValidatorsSigned) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonCheckpointValidatorsSigned) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonCheckpointValidatorsSigned) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonCheckpointValidatorsSigned(settings MetricSettings) metricPolygonCheckpointValidatorsSigned {
+	m := metricPolygonCheckpointValidatorsSigned{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
 }
 
 type metricPolygonLastBlock struct {
@@ -192,10 +247,11 @@ func newMetricPolygonSubmitCheckpointTime(settings MetricSettings) metricPolygon
 // MetricsBuilder provides an interface for scrapers to report metrics while taking care of all the transformations
 // required to produce metric representation defined in metadata and user settings.
 type MetricsBuilder struct {
-	startTime                         pdata.Timestamp
-	metricPolygonLastBlock            metricPolygonLastBlock
-	metricPolygonLastBlockTime        metricPolygonLastBlockTime
-	metricPolygonSubmitCheckpointTime metricPolygonSubmitCheckpointTime
+	startTime                               pdata.Timestamp
+	metricPolygonCheckpointValidatorsSigned metricPolygonCheckpointValidatorsSigned
+	metricPolygonLastBlock                  metricPolygonLastBlock
+	metricPolygonLastBlockTime              metricPolygonLastBlockTime
+	metricPolygonSubmitCheckpointTime       metricPolygonSubmitCheckpointTime
 }
 
 // metricBuilderOption applies changes to default metrics builder.
@@ -210,10 +266,11 @@ func WithStartTime(startTime pdata.Timestamp) metricBuilderOption {
 
 func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
-		startTime:                         pdata.NewTimestampFromTime(time.Now()),
-		metricPolygonLastBlock:            newMetricPolygonLastBlock(settings.PolygonLastBlock),
-		metricPolygonLastBlockTime:        newMetricPolygonLastBlockTime(settings.PolygonLastBlockTime),
-		metricPolygonSubmitCheckpointTime: newMetricPolygonSubmitCheckpointTime(settings.PolygonSubmitCheckpointTime),
+		startTime:                               pdata.NewTimestampFromTime(time.Now()),
+		metricPolygonCheckpointValidatorsSigned: newMetricPolygonCheckpointValidatorsSigned(settings.PolygonCheckpointValidatorsSigned),
+		metricPolygonLastBlock:                  newMetricPolygonLastBlock(settings.PolygonLastBlock),
+		metricPolygonLastBlockTime:              newMetricPolygonLastBlockTime(settings.PolygonLastBlockTime),
+		metricPolygonSubmitCheckpointTime:       newMetricPolygonSubmitCheckpointTime(settings.PolygonSubmitCheckpointTime),
 	}
 	for _, op := range options {
 		op(mb)
@@ -225,9 +282,15 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 // another set of data points. This function will be doing all transformations required to produce metric representation
 // defined in metadata and user settings, e.g. delta/cumulative translation.
 func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
+	mb.metricPolygonCheckpointValidatorsSigned.emit(metrics)
 	mb.metricPolygonLastBlock.emit(metrics)
 	mb.metricPolygonLastBlockTime.emit(metrics)
 	mb.metricPolygonSubmitCheckpointTime.emit(metrics)
+}
+
+// RecordPolygonCheckpointValidatorsSignedDataPoint adds a data point to polygon.checkpoint_validators_signed metric.
+func (mb *MetricsBuilder) RecordPolygonCheckpointValidatorsSignedDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	mb.metricPolygonCheckpointValidatorsSigned.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonLastBlockDataPoint adds a data point to polygon.last_block metric.

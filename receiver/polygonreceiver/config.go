@@ -11,4 +11,6 @@ type Config struct {
 	PolygonJsonRPCEndpoint  string `mapstructure:"polygon_jsonrpc_endpoint"`
 	EtherscanAPIKey         string `mapstructure:"etherscan_api_key"`
 	PolygonscanAPIKey       string `mapstructure:"polygonscan_api_key"`
+	Chain                   string `mapstructure:"chain"`
+	DatadogAPIKey           string `mapstructure:"datadog_api_key"`
 }
