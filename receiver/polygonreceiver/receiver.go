@@ -130,7 +130,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 
 	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
 
-	bnp := ethgo.BlockNumber(bn - 2000)
+	bnp := ethgo.BlockNumber(bn - 5000)
 	lbp := ethgo.BlockNumber(bn)
 	h := checkpointEventSig.ID()
 	topics := []*ethgo.Hash{&h}
@@ -140,7 +140,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		Address: []ethgo.Address{ethgo.HexToAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287")},
 		Topics:  [][]*ethgo.Hash{topics},
 	})
-	if err == nil && len(logs) > 0 {
+	if err == nil && len(logs) > 2 {
 		// Sort by age, keeping original order or equal elements.
 		sort.SliceStable(logs, func(i, j int) bool {
 			return logs[i].BlockNumber > logs[j].BlockNumber
