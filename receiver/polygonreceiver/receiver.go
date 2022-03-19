@@ -142,21 +142,23 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 	})
 	if err == nil && len(logs) > 0 {
 		// Sort by block number and remove nil elements.
-		sort.SliceStable(logs, func(i, j int) bool {
+		var logsnn []*ethgo.Log
+		for _, l := range logs {
+			if l != nil {
+				logsnn = append(logsnn, l)
+			}
+		}
+
+		sort.SliceStable(logsnn, func(i, j int) bool {
 			return logs[i].BlockNumber > logs[j].BlockNumber
 		})
 
 		var log *ethgo.Log
-		if len(logs) > 0 {
-			for _, l := range logs {
-				if l != nil {
-					log = l
-				}
-			}
-			if log == nil {
-				r.logger.Error("no checkpoint log found")
-				return
-			}
+		if len(logsnn) > 0 {
+			log = logsnn[0]
+		} else {
+			r.logger.Error("no logs found")
+			return
 		}
 
 		event, err := checkpointEventSig.ParseLog(log)
