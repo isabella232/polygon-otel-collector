@@ -141,7 +141,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		Topics:  [][]*ethgo.Hash{topics},
 	})
 	if err == nil && len(logs) > 0 {
-		// Sort by block number and remove nil elements.
+		// Remove nil elements.
 		var logsnn []*ethgo.Log
 		for _, l := range logs {
 			if l != nil {
@@ -149,10 +149,12 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 			}
 		}
 
+		// Sort logs by block number.
 		sort.SliceStable(logsnn, func(i, j int) bool {
 			return logs[i].BlockNumber > logs[j].BlockNumber
 		})
 
+		// Exit if there are no logs.
 		var log *ethgo.Log
 		if len(logsnn) > 0 {
 			log = logsnn[0]
