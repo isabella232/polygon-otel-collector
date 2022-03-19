@@ -130,7 +130,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 
 	checkpointEventSig := abi.MustNewEvent("event NewHeaderBlock(address indexed proposer, uint256 indexed headerBlockId, uint256 indexed reward, uint256 start, uint256 end, bytes32 root)")
 
-	bnp := ethgo.BlockNumber(bn - 5000)
+	bnp := ethgo.BlockNumber(bn - 10000)
 	lbp := ethgo.BlockNumber(bn)
 	h := checkpointEventSig.ID()
 	topics := []*ethgo.Hash{&h}
@@ -140,13 +140,27 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		Address: []ethgo.Address{ethgo.HexToAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287")},
 		Topics:  [][]*ethgo.Hash{topics},
 	})
-	if err == nil && len(logs) > 2 {
+	if err == nil && len(logs) > 0 {
+		// Find the first non nil log
+		var log *ethgo.Log
+		for _, l := range logs {
+			if l != nil {
+				log = l
+				break
+			}
+		}
+		// Return if no valid log found
+		if log == nil {
+			r.logger.Error("failed to get logs", zap.Error(err))
+			return
+		}
+
 		// Sort by age, keeping original order or equal elements.
 		sort.SliceStable(logs, func(i, j int) bool {
 			return logs[i].BlockNumber > logs[j].BlockNumber
 		})
 
-		event, err := checkpointEventSig.ParseLog(logs[1])
+		event, err := checkpointEventSig.ParseLog(log)
 		if err != nil {
 			r.logger.Error("failed to parse log", zap.Error(err))
 			return
@@ -156,7 +170,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		hbiTrim := strings.TrimRight(fmt.Sprintf("%v", hbi), "0000")
 
 		////
-		b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(logs[1].BlockNumber), true)
+		b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(log.BlockNumber), true)
 		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
 		r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 		////
