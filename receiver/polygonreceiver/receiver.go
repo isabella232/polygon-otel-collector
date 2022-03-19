@@ -141,24 +141,23 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		Topics:  [][]*ethgo.Hash{topics},
 	})
 	if err == nil && len(logs) > 0 {
-		// Find the first non nil log
-		var log *ethgo.Log
-		for _, l := range logs {
-			if l != nil {
-				log = l
-				break
-			}
-		}
-		// Return if no valid log found
-		if log == nil {
-			r.logger.Error("failed to get logs", zap.Error(err))
-			return
-		}
-
-		// Sort by age, keeping original order or equal elements.
+		// Sort by block number and remove nil elements.
 		sort.SliceStable(logs, func(i, j int) bool {
 			return logs[i].BlockNumber > logs[j].BlockNumber
 		})
+
+		var log *ethgo.Log
+		if len(logs) > 0 {
+			for _, l := range logs {
+				if l != nil {
+					log = l
+				}
+			}
+			if log == nil {
+				r.logger.Error("no checkpoint log found")
+				return
+			}
+		}
 
 		event, err := checkpointEventSig.ParseLog(log)
 		if err != nil {
