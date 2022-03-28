@@ -6,7 +6,7 @@ attributes:
     description: The name of a chain.
 
 metrics:
-  polygon.last_block:
+  polygon.bor.last_block:
     enabled: true
     description: The current block number.
     unit: block
@@ -16,7 +16,7 @@ metrics:
       monotonic: false
     attributes: [chain]
 
-  polygon.submit_checkpoint_time:
+  polygon.eth.submit_checkpoint_time:
     enabled: true
     description: Latest checkpoint transaction time.
     unit: seconds
@@ -24,7 +24,7 @@ metrics:
       value_type: double
     attributes: [chain]
 
-  polygon.checkpoint_validators_signed:
+  polygon.heimdall.checkpoint_validators_signed:
     enabled: true
     description: Number of validators who signed last checkpoint.
     # unit: seconds
@@ -32,7 +32,7 @@ metrics:
       value_type: int
     attributes: [chain]
   
-  polygon.last_block_time:
+  polygon.bor.last_block_time:
     enabled: true
     description: The average block time.
     unit: milliseconds

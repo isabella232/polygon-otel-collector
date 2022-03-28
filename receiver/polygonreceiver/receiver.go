@@ -105,21 +105,18 @@ func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp) {
 	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
+		return
 	}
 	block, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number), true)
 	if err != nil {
 		r.logger.Error("failed to get block", zap.Error(err))
-	}
-	prevBlock, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number-1), true)
-	if err != nil {
-		r.logger.Error("failed to get previous block", zap.Error(err))
+		return
 	}
 
-	if block != nil && prevBlock != nil {
-		bd := time.Unix(int64(block.Timestamp), 0).Sub(time.Unix(int64(prevBlock.Timestamp), 0))
-		r.mb.RecordPolygonLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-"+r.config.Chain)
-	}
-	r.mb.RecordPolygonLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
+	bd := now.AsTime().Sub(time.Unix(int64(block.Timestamp), 0))
+	r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-"+r.config.Chain)
+
+	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
@@ -158,7 +155,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		////
 		b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(log.BlockNumber), true)
 		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-		r.mb.RecordPolygonSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 		////
 
 		// Get checkpoint signatures
@@ -186,7 +183,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 				signedCount++
 			}
 		}
-		r.mb.RecordPolygonCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
+		r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
 
 		if signedCount < 90 {
 			r.checkpointSignaturesDatadogEvent(signedCount)
