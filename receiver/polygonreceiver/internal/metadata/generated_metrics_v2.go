@@ -16,16 +16,21 @@ type MetricSettings struct {
 // MetricsSettings provides settings for polygonreceiver metrics.
 type MetricsSettings struct {
 	PolygonCheckpointValidatorsSigned MetricSettings `mapstructure:"polygon.checkpoint_validators_signed"`
+	PolygonEthStateSync               MetricSettings `mapstructure:"polygon.eth.state_sync"`
 	PolygonHeimdallTotalTxs           MetricSettings `mapstructure:"polygon.heimdall.total_txs"`
 	PolygonHeimdallUnconfirmedTxs     MetricSettings `mapstructure:"polygon.heimdall.unconfirmed_txs"`
 	PolygonLastBlock                  MetricSettings `mapstructure:"polygon.last_block"`
 	PolygonLastBlockTime              MetricSettings `mapstructure:"polygon.last_block_time"`
+	PolygonPolygonStateSync           MetricSettings `mapstructure:"polygon.polygon.state_sync"`
 	PolygonSubmitCheckpointTime       MetricSettings `mapstructure:"polygon.submit_checkpoint_time"`
 }
 
 func DefaultMetricsSettings() MetricsSettings {
 	return MetricsSettings{
 		PolygonCheckpointValidatorsSigned: MetricSettings{
+			Enabled: true,
+		},
+		PolygonEthStateSync: MetricSettings{
 			Enabled: true,
 		},
 		PolygonHeimdallTotalTxs: MetricSettings{
@@ -38,6 +43,9 @@ func DefaultMetricsSettings() MetricsSettings {
 			Enabled: true,
 		},
 		PolygonLastBlockTime: MetricSettings{
+			Enabled: true,
+		},
+		PolygonPolygonStateSync: MetricSettings{
 			Enabled: true,
 		},
 		PolygonSubmitCheckpointTime: MetricSettings{
@@ -90,6 +98,57 @@ func (m *metricPolygonCheckpointValidatorsSigned) emit(metrics pdata.MetricSlice
 
 func newMetricPolygonCheckpointValidatorsSigned(settings MetricSettings) metricPolygonCheckpointValidatorsSigned {
 	m := metricPolygonCheckpointValidatorsSigned{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricPolygonEthStateSync struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.eth.state_sync metric with initial data.
+func (m *metricPolygonEthStateSync) init() {
+	m.data.SetName("polygon.eth.state_sync")
+	m.data.SetDescription("Total number of StateSync transactions emited.")
+	m.data.SetUnit("txs")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonEthStateSync) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonEthStateSync) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonEthStateSync) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonEthStateSync(settings MetricSettings) metricPolygonEthStateSync {
+	m := metricPolygonEthStateSync{settings: settings}
 	if settings.Enabled {
 		m.data = pdata.NewMetric()
 		m.init()
@@ -303,6 +362,57 @@ func newMetricPolygonLastBlockTime(settings MetricSettings) metricPolygonLastBlo
 	return m
 }
 
+type metricPolygonPolygonStateSync struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.polygon.state_sync metric with initial data.
+func (m *metricPolygonPolygonStateSync) init() {
+	m.data.SetName("polygon.polygon.state_sync")
+	m.data.SetDescription("Total number of StateSync transactions received.")
+	m.data.SetUnit("txs")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonPolygonStateSync) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonPolygonStateSync) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonPolygonStateSync) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonPolygonStateSync(settings MetricSettings) metricPolygonPolygonStateSync {
+	m := metricPolygonPolygonStateSync{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricPolygonSubmitCheckpointTime struct {
 	data     pdata.Metric   // data buffer for generated metric.
 	settings MetricSettings // metric settings provided by user.
@@ -359,10 +469,12 @@ func newMetricPolygonSubmitCheckpointTime(settings MetricSettings) metricPolygon
 type MetricsBuilder struct {
 	startTime                               pdata.Timestamp
 	metricPolygonCheckpointValidatorsSigned metricPolygonCheckpointValidatorsSigned
+	metricPolygonEthStateSync               metricPolygonEthStateSync
 	metricPolygonHeimdallTotalTxs           metricPolygonHeimdallTotalTxs
 	metricPolygonHeimdallUnconfirmedTxs     metricPolygonHeimdallUnconfirmedTxs
 	metricPolygonLastBlock                  metricPolygonLastBlock
 	metricPolygonLastBlockTime              metricPolygonLastBlockTime
+	metricPolygonPolygonStateSync           metricPolygonPolygonStateSync
 	metricPolygonSubmitCheckpointTime       metricPolygonSubmitCheckpointTime
 }
 
@@ -380,10 +492,12 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 	mb := &MetricsBuilder{
 		startTime:                               pdata.NewTimestampFromTime(time.Now()),
 		metricPolygonCheckpointValidatorsSigned: newMetricPolygonCheckpointValidatorsSigned(settings.PolygonCheckpointValidatorsSigned),
+		metricPolygonEthStateSync:               newMetricPolygonEthStateSync(settings.PolygonEthStateSync),
 		metricPolygonHeimdallTotalTxs:           newMetricPolygonHeimdallTotalTxs(settings.PolygonHeimdallTotalTxs),
 		metricPolygonHeimdallUnconfirmedTxs:     newMetricPolygonHeimdallUnconfirmedTxs(settings.PolygonHeimdallUnconfirmedTxs),
 		metricPolygonLastBlock:                  newMetricPolygonLastBlock(settings.PolygonLastBlock),
 		metricPolygonLastBlockTime:              newMetricPolygonLastBlockTime(settings.PolygonLastBlockTime),
+		metricPolygonPolygonStateSync:           newMetricPolygonPolygonStateSync(settings.PolygonPolygonStateSync),
 		metricPolygonSubmitCheckpointTime:       newMetricPolygonSubmitCheckpointTime(settings.PolygonSubmitCheckpointTime),
 	}
 	for _, op := range options {
@@ -397,16 +511,23 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 // defined in metadata and user settings, e.g. delta/cumulative translation.
 func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
 	mb.metricPolygonCheckpointValidatorsSigned.emit(metrics)
+	mb.metricPolygonEthStateSync.emit(metrics)
 	mb.metricPolygonHeimdallTotalTxs.emit(metrics)
 	mb.metricPolygonHeimdallUnconfirmedTxs.emit(metrics)
 	mb.metricPolygonLastBlock.emit(metrics)
 	mb.metricPolygonLastBlockTime.emit(metrics)
+	mb.metricPolygonPolygonStateSync.emit(metrics)
 	mb.metricPolygonSubmitCheckpointTime.emit(metrics)
 }
 
 // RecordPolygonCheckpointValidatorsSignedDataPoint adds a data point to polygon.checkpoint_validators_signed metric.
 func (mb *MetricsBuilder) RecordPolygonCheckpointValidatorsSignedDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
 	mb.metricPolygonCheckpointValidatorsSigned.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
+// RecordPolygonEthStateSyncDataPoint adds a data point to polygon.eth.state_sync metric.
+func (mb *MetricsBuilder) RecordPolygonEthStateSyncDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	mb.metricPolygonEthStateSync.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonHeimdallTotalTxsDataPoint adds a data point to polygon.heimdall.total_txs metric.
@@ -427,6 +548,11 @@ func (mb *MetricsBuilder) RecordPolygonLastBlockDataPoint(ts pdata.Timestamp, va
 // RecordPolygonLastBlockTimeDataPoint adds a data point to polygon.last_block_time metric.
 func (mb *MetricsBuilder) RecordPolygonLastBlockTimeDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
 	mb.metricPolygonLastBlockTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
+// RecordPolygonPolygonStateSyncDataPoint adds a data point to polygon.polygon.state_sync metric.
+func (mb *MetricsBuilder) RecordPolygonPolygonStateSyncDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	mb.metricPolygonPolygonStateSync.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonSubmitCheckpointTimeDataPoint adds a data point to polygon.submit_checkpoint_time metric.

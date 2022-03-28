@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -93,6 +92,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	r.recordLastBlockMetrics(now)
 	r.recordCheckpointMetrics(now)
 	r.recordHeimdallUnconfirmedTransactions(now)
+	r.recordRootChainStateSyncs(now)
 
 	r.mb.Emit(ilm.Metrics())
 
@@ -141,27 +141,8 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		Topics:  [][]*ethgo.Hash{topics},
 	})
 	if err == nil && len(logs) > 0 {
-		// Remove nil elements.
-		var logsnn []*ethgo.Log
-		for _, l := range logs {
-			if l != nil {
-				logsnn = append(logsnn, l)
-			}
-		}
-
-		// Sort logs by block number.
-		sort.SliceStable(logsnn, func(i, j int) bool {
-			return logs[i].BlockNumber > logs[j].BlockNumber
-		})
-
 		// Exit if there are no logs.
-		var log *ethgo.Log
-		if len(logsnn) > 0 {
-			log = logsnn[0]
-		} else {
-			r.logger.Error("no logs found")
-			return
-		}
+		log := logs[len(logs)-1]
 
 		event, err := checkpointEventSig.ParseLog(log)
 		if err != nil {
@@ -270,4 +251,64 @@ func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timest
 
 	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, r.config.Chain)
 	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, r.config.Chain)
+}
+
+func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
+	// Get logs for the latest checkpoint transaction
+	bn, err := r.ethClient.Eth().BlockNumber()
+	if err != nil {
+		r.logger.Error("failed to get block number", zap.Error(err))
+		return
+	}
+	stateSyncedEventSig := abi.MustNewEvent("event StateSynced(uint256 indexed id, address indexed contractAddress, bytes data)")
+
+	bnp := ethgo.BlockNumber(bn - 1000)
+	lbp := ethgo.BlockNumber(bn)
+	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
+		From:    &bnp,
+		To:      &lbp,
+		Address: []ethgo.Address{ethgo.HexToAddress("0x28e4F3a7f651294B9564800b2D01f35189A5bFbE")},
+	})
+
+	if err == nil && len(logs) > 0 {
+		log := logs[len(logs)-1]
+
+		event, err := stateSyncedEventSig.ParseLog(log)
+		if err != nil {
+			r.logger.Error("failed to parse log", zap.Error(err))
+			return
+		}
+		id := event["id"].(*big.Int)
+		r.mb.RecordPolygonEthStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+	}
+}
+
+func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
+	// Get logs for the latest checkpoint transaction
+	bn, err := r.polygonClient.Eth().BlockNumber()
+	if err != nil {
+		r.logger.Error("failed to get block number", zap.Error(err))
+		return
+	}
+	stateSyncedEventSig := abi.MustNewEvent("event StateSynced(uint256 indexed id, address indexed contractAddress, bytes data)")
+
+	bnp := ethgo.BlockNumber(bn - 1000)
+	lbp := ethgo.BlockNumber(bn)
+	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
+		From:    &bnp,
+		To:      &lbp,
+		Address: []ethgo.Address{ethgo.HexToAddress("0x0000000000000000000000000000000000001001")},
+	})
+
+	if err == nil && len(logs) > 0 {
+		log := logs[len(logs)-1]
+
+		event, err := stateSyncedEventSig.ParseLog(log)
+		if err != nil {
+			r.logger.Error("failed to parse log", zap.Error(err))
+			return
+		}
+		id := event["id"].(*big.Int)
+		r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+	}
 }

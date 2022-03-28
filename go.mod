@@ -47,6 +47,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.1 // indirect
+	github.com/graphql-go/graphql v0.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/influxdata/influxdb-observability/common v0.2.14 // indirect
 	github.com/influxdata/influxdb-observability/influx2otel v0.2.14 // indirect

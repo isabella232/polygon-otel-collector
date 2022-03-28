@@ -1,4 +1,4 @@
-# mdatagen -experimental-gen metadata.yaml 
+# mdatagen -experimental-gen metadata.yaml
 name: polygonreceiver
 
 attributes:
@@ -51,6 +51,22 @@ metrics:
   polygon.heimdall.total_txs:
     enabled: true
     description: Total number of transactions.
+    unit: txs
+    gauge:
+      value_type: int
+    attributes: [chain]
+  
+  polygon.eth.state_sync:
+    enabled: true
+    description: Total number of StateSync transactions emited.
+    unit: txs
+    gauge:
+      value_type: int
+    attributes: [chain]
+  
+  polygon.polygon.state_sync:
+    enabled: true
+    description: Total number of StateSync transactions received.
     unit: txs
     gauge:
       value_type: int
