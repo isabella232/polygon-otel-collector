@@ -16,6 +16,7 @@ import (
 	"github.com/nanmu42/etherscan-api"
 	"github.com/umbracle/ethgo"
 	"github.com/umbracle/ethgo/abi"
+	"github.com/umbracle/ethgo/contract"
 	"github.com/umbracle/ethgo/jsonrpc"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
@@ -93,6 +94,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	r.recordCheckpointMetrics(now)
 	r.recordHeimdallUnconfirmedTransactions(now)
 	r.recordRootChainStateSyncs(now)
+	r.recordSideChainStateSyncs(now)
 
 	r.mb.Emit(ilm.Metrics())
 
@@ -284,31 +286,30 @@ func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
 }
 
 func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
-	// Get logs for the latest checkpoint transaction
-	bn, err := r.polygonClient.Eth().BlockNumber()
+	var functions = []string{
+		"function lastStateId() public view returns (uint256)",
+	}
+
+	abiContract, err := abi.NewABIFromList(functions)
 	if err != nil {
-		r.logger.Error("failed to get block number", zap.Error(err))
+		r.logger.Error("failed to create abi", zap.Error(err))
 		return
 	}
-	stateSyncedEventSig := abi.MustNewEvent("event StateSynced(uint256 indexed id, address indexed contractAddress, bytes data)")
 
-	bnp := ethgo.BlockNumber(bn - 1000)
-	lbp := ethgo.BlockNumber(bn)
-	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
-		From:    &bnp,
-		To:      &lbp,
-		Address: []ethgo.Address{ethgo.HexToAddress("0x0000000000000000000000000000000000001001")},
-	})
+	// Matic token
+	addr := ethgo.HexToAddress("0x0000000000000000000000000000000000001001")
 
-	if err == nil && len(logs) > 0 {
-		log := logs[len(logs)-1]
-
-		event, err := stateSyncedEventSig.ParseLog(log)
-		if err != nil {
-			r.logger.Error("failed to parse log", zap.Error(err))
-			return
-		}
-		id := event["id"].(*big.Int)
-		r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+	c := contract.NewContract(addr, abiContract, r.polygonClient)
+	res, err := c.Call("lastStateId", ethgo.Latest)
+	if err != nil {
+		r.logger.Error("failed to get last state id", zap.Error(err))
+		return
 	}
+
+	id, ok := res["0"].(*big.Int)
+	if !ok {
+		r.logger.Error("failed to parse last state id", zap.Error(err))
+		return
+	}
+	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
 }
