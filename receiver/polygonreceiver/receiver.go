@@ -122,7 +122,7 @@ func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp, prev pdata
 	if prevBlock == 0 {
 		prevBlock = number
 	} else {
-		bd = number - prevBlock
+		bd = number - prevBlock - 1
 		td := now.AsTime().Sub(prev.AsTime())
 
 		bt = td.Seconds() / float64(bd)
