@@ -84,13 +84,20 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	return nil
 }
 
+var prev pdata.Timestamp
+var prevBlock uint64
+
 func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	md := pdata.NewMetrics()
 	ilm := md.ResourceMetrics().AppendEmpty().InstrumentationLibraryMetrics().AppendEmpty()
 	ilm.InstrumentationLibrary().SetName("otelcol/polygon")
-	now := pdata.NewTimestampFromTime(time.Now())
 
-	r.recordLastBlockMetrics(now)
+	now := pdata.NewTimestampFromTime(time.Now())
+	if prev == 0 {
+		prev = now
+	}
+
+	r.recordLastBlockMetrics(now, prev)
 	r.recordCheckpointMetrics(now)
 	r.recordHeimdallUnconfirmedTransactions(now)
 	r.recordRootChainStateSyncs(now)
@@ -98,24 +105,30 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 
 	r.mb.Emit(ilm.Metrics())
 
+	prev = now
+
 	return md, nil
 }
 
-func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp) {
+func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
 	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
 		return
 	}
-	block, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number), true)
-	if err != nil {
-		r.logger.Error("failed to get block", zap.Error(err))
-		return
+
+	var bd uint64
+	var bt uint64
+	if prevBlock == 0 {
+		prevBlock = number
+	} else {
+		bd = number - prevBlock
+		td := now.AsTime().Sub(prev.AsTime())
+
+		bt = uint64(td.Seconds()) / bd
 	}
 
-	bd := now.AsTime().Sub(time.Unix(int64(block.Timestamp), 0))
-	r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, bd.Milliseconds(), "polygon-"+r.config.Chain)
-
+	r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, int64(bt), "polygon-"+r.config.Chain)
 	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
 }
 
