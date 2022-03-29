@@ -126,10 +126,9 @@ func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp, prev pdata
 		td := now.AsTime().Sub(prev.AsTime())
 
 		bt = uint64(td.Seconds()) / bd
+		r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, int64(bt), "polygon-"+r.config.Chain)
+		r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
 	}
-
-	r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, int64(bt), "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
