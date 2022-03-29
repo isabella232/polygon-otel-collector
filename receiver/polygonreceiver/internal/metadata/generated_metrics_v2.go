@@ -15,8 +15,8 @@ type MetricSettings struct {
 
 // MetricsSettings provides settings for polygonreceiver metrics.
 type MetricsSettings struct {
+	PolygonBorAverageBlockTime                MetricSettings `mapstructure:"polygon.bor.average_block_time"`
 	PolygonBorLastBlock                       MetricSettings `mapstructure:"polygon.bor.last_block"`
-	PolygonBorLastBlockTime                   MetricSettings `mapstructure:"polygon.bor.last_block_time"`
 	PolygonEthStateSync                       MetricSettings `mapstructure:"polygon.eth.state_sync"`
 	PolygonEthSubmitCheckpointTime            MetricSettings `mapstructure:"polygon.eth.submit_checkpoint_time"`
 	PolygonHeimdallCheckpointValidatorsSigned MetricSettings `mapstructure:"polygon.heimdall.checkpoint_validators_signed"`
@@ -27,10 +27,10 @@ type MetricsSettings struct {
 
 func DefaultMetricsSettings() MetricsSettings {
 	return MetricsSettings{
-		PolygonBorLastBlock: MetricSettings{
+		PolygonBorAverageBlockTime: MetricSettings{
 			Enabled: true,
 		},
-		PolygonBorLastBlockTime: MetricSettings{
+		PolygonBorLastBlock: MetricSettings{
 			Enabled: true,
 		},
 		PolygonEthStateSync: MetricSettings{
@@ -52,6 +52,57 @@ func DefaultMetricsSettings() MetricsSettings {
 			Enabled: true,
 		},
 	}
+}
+
+type metricPolygonBorAverageBlockTime struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.bor.average_block_time metric with initial data.
+func (m *metricPolygonBorAverageBlockTime) init() {
+	m.data.SetName("polygon.bor.average_block_time")
+	m.data.SetDescription("The average block time.")
+	m.data.SetUnit("seconds")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonBorAverageBlockTime) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val float64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonBorAverageBlockTime) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonBorAverageBlockTime) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonBorAverageBlockTime(settings MetricSettings) metricPolygonBorAverageBlockTime {
+	m := metricPolygonBorAverageBlockTime{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
 }
 
 type metricPolygonBorLastBlock struct {
@@ -100,57 +151,6 @@ func (m *metricPolygonBorLastBlock) emit(metrics pdata.MetricSlice) {
 
 func newMetricPolygonBorLastBlock(settings MetricSettings) metricPolygonBorLastBlock {
 	m := metricPolygonBorLastBlock{settings: settings}
-	if settings.Enabled {
-		m.data = pdata.NewMetric()
-		m.init()
-	}
-	return m
-}
-
-type metricPolygonBorLastBlockTime struct {
-	data     pdata.Metric   // data buffer for generated metric.
-	settings MetricSettings // metric settings provided by user.
-	capacity int            // max observed number of data points added to the metric.
-}
-
-// init fills polygon.bor.last_block_time metric with initial data.
-func (m *metricPolygonBorLastBlockTime) init() {
-	m.data.SetName("polygon.bor.last_block_time")
-	m.data.SetDescription("The average block time.")
-	m.data.SetUnit("milliseconds")
-	m.data.SetDataType(pdata.MetricDataTypeGauge)
-	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
-}
-
-func (m *metricPolygonBorLastBlockTime) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
-	if !m.settings.Enabled {
-		return
-	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	dp.SetIntVal(val)
-	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricPolygonBorLastBlockTime) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricPolygonBorLastBlockTime) emit(metrics pdata.MetricSlice) {
-	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricPolygonBorLastBlockTime(settings MetricSettings) metricPolygonBorLastBlockTime {
-	m := metricPolygonBorLastBlockTime{settings: settings}
 	if settings.Enabled {
 		m.data = pdata.NewMetric()
 		m.init()
@@ -468,8 +468,8 @@ func newMetricPolygonPolygonStateSync(settings MetricSettings) metricPolygonPoly
 // required to produce metric representation defined in metadata and user settings.
 type MetricsBuilder struct {
 	startTime                                       pdata.Timestamp
+	metricPolygonBorAverageBlockTime                metricPolygonBorAverageBlockTime
 	metricPolygonBorLastBlock                       metricPolygonBorLastBlock
-	metricPolygonBorLastBlockTime                   metricPolygonBorLastBlockTime
 	metricPolygonEthStateSync                       metricPolygonEthStateSync
 	metricPolygonEthSubmitCheckpointTime            metricPolygonEthSubmitCheckpointTime
 	metricPolygonHeimdallCheckpointValidatorsSigned metricPolygonHeimdallCheckpointValidatorsSigned
@@ -491,8 +491,8 @@ func WithStartTime(startTime pdata.Timestamp) metricBuilderOption {
 func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
 		startTime:                                       pdata.NewTimestampFromTime(time.Now()),
+		metricPolygonBorAverageBlockTime:                newMetricPolygonBorAverageBlockTime(settings.PolygonBorAverageBlockTime),
 		metricPolygonBorLastBlock:                       newMetricPolygonBorLastBlock(settings.PolygonBorLastBlock),
-		metricPolygonBorLastBlockTime:                   newMetricPolygonBorLastBlockTime(settings.PolygonBorLastBlockTime),
 		metricPolygonEthStateSync:                       newMetricPolygonEthStateSync(settings.PolygonEthStateSync),
 		metricPolygonEthSubmitCheckpointTime:            newMetricPolygonEthSubmitCheckpointTime(settings.PolygonEthSubmitCheckpointTime),
 		metricPolygonHeimdallCheckpointValidatorsSigned: newMetricPolygonHeimdallCheckpointValidatorsSigned(settings.PolygonHeimdallCheckpointValidatorsSigned),
@@ -510,8 +510,8 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 // another set of data points. This function will be doing all transformations required to produce metric representation
 // defined in metadata and user settings, e.g. delta/cumulative translation.
 func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
+	mb.metricPolygonBorAverageBlockTime.emit(metrics)
 	mb.metricPolygonBorLastBlock.emit(metrics)
-	mb.metricPolygonBorLastBlockTime.emit(metrics)
 	mb.metricPolygonEthStateSync.emit(metrics)
 	mb.metricPolygonEthSubmitCheckpointTime.emit(metrics)
 	mb.metricPolygonHeimdallCheckpointValidatorsSigned.emit(metrics)
@@ -520,14 +520,14 @@ func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
 	mb.metricPolygonPolygonStateSync.emit(metrics)
 }
 
+// RecordPolygonBorAverageBlockTimeDataPoint adds a data point to polygon.bor.average_block_time metric.
+func (mb *MetricsBuilder) RecordPolygonBorAverageBlockTimeDataPoint(ts pdata.Timestamp, val float64, chainAttributeValue string) {
+	mb.metricPolygonBorAverageBlockTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
 // RecordPolygonBorLastBlockDataPoint adds a data point to polygon.bor.last_block metric.
 func (mb *MetricsBuilder) RecordPolygonBorLastBlockDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
 	mb.metricPolygonBorLastBlock.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
-}
-
-// RecordPolygonBorLastBlockTimeDataPoint adds a data point to polygon.bor.last_block_time metric.
-func (mb *MetricsBuilder) RecordPolygonBorLastBlockTimeDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
-	mb.metricPolygonBorLastBlockTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonEthStateSyncDataPoint adds a data point to polygon.eth.state_sync metric.

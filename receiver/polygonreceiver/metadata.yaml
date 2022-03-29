@@ -32,12 +32,12 @@ metrics:
       value_type: int
     attributes: [chain]
   
-  polygon.bor.last_block_time:
+  polygon.bor.average_block_time:
     enabled: true
     description: The average block time.
-    unit: milliseconds
+    unit: seconds
     gauge:
-      value_type: int
+      value_type: double
     attributes: [chain]
 
   polygon.heimdall.unconfirmed_txs:

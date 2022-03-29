@@ -118,15 +118,15 @@ func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp, prev pdata
 	}
 
 	var bd uint64
-	var bt uint64
+	var bt float64
 	if prevBlock == 0 {
 		prevBlock = number
 	} else {
 		bd = number - prevBlock
 		td := now.AsTime().Sub(prev.AsTime())
 
-		bt = uint64(td.Seconds()) / bd
-		r.mb.RecordPolygonBorLastBlockTimeDataPoint(now, int64(bt), "polygon-"+r.config.Chain)
+		bt = td.Seconds() / float64(bd)
+		r.mb.RecordPolygonBorAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
 		r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
 	}
 }
