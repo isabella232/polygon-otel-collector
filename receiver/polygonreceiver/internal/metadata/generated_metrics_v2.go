@@ -19,7 +19,9 @@ type MetricsSettings struct {
 	PolygonBorLastBlock                       MetricSettings `mapstructure:"polygon.bor.last_block"`
 	PolygonEthStateSync                       MetricSettings `mapstructure:"polygon.eth.state_sync"`
 	PolygonEthSubmitCheckpointTime            MetricSettings `mapstructure:"polygon.eth.submit_checkpoint_time"`
+	PolygonHeimdallAverageBlockTime           MetricSettings `mapstructure:"polygon.heimdall.average_block_time"`
 	PolygonHeimdallCheckpointValidatorsSigned MetricSettings `mapstructure:"polygon.heimdall.checkpoint_validators_signed"`
+	PolygonHeimdallLastBlock                  MetricSettings `mapstructure:"polygon.heimdall.last_block"`
 	PolygonHeimdallTotalTxs                   MetricSettings `mapstructure:"polygon.heimdall.total_txs"`
 	PolygonHeimdallUnconfirmedTxs             MetricSettings `mapstructure:"polygon.heimdall.unconfirmed_txs"`
 	PolygonPolygonStateSync                   MetricSettings `mapstructure:"polygon.polygon.state_sync"`
@@ -39,7 +41,13 @@ func DefaultMetricsSettings() MetricsSettings {
 		PolygonEthSubmitCheckpointTime: MetricSettings{
 			Enabled: true,
 		},
+		PolygonHeimdallAverageBlockTime: MetricSettings{
+			Enabled: true,
+		},
 		PolygonHeimdallCheckpointValidatorsSigned: MetricSettings{
+			Enabled: true,
+		},
+		PolygonHeimdallLastBlock: MetricSettings{
 			Enabled: true,
 		},
 		PolygonHeimdallTotalTxs: MetricSettings{
@@ -260,6 +268,57 @@ func newMetricPolygonEthSubmitCheckpointTime(settings MetricSettings) metricPoly
 	return m
 }
 
+type metricPolygonHeimdallAverageBlockTime struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.heimdall.average_block_time metric with initial data.
+func (m *metricPolygonHeimdallAverageBlockTime) init() {
+	m.data.SetName("polygon.heimdall.average_block_time")
+	m.data.SetDescription("The average block time.")
+	m.data.SetUnit("seconds")
+	m.data.SetDataType(pdata.MetricDataTypeGauge)
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonHeimdallAverageBlockTime) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val float64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonHeimdallAverageBlockTime) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonHeimdallAverageBlockTime) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonHeimdallAverageBlockTime(settings MetricSettings) metricPolygonHeimdallAverageBlockTime {
+	m := metricPolygonHeimdallAverageBlockTime{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricPolygonHeimdallCheckpointValidatorsSigned struct {
 	data     pdata.Metric   // data buffer for generated metric.
 	settings MetricSettings // metric settings provided by user.
@@ -304,6 +363,59 @@ func (m *metricPolygonHeimdallCheckpointValidatorsSigned) emit(metrics pdata.Met
 
 func newMetricPolygonHeimdallCheckpointValidatorsSigned(settings MetricSettings) metricPolygonHeimdallCheckpointValidatorsSigned {
 	m := metricPolygonHeimdallCheckpointValidatorsSigned{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricPolygonHeimdallLastBlock struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.heimdall.last_block metric with initial data.
+func (m *metricPolygonHeimdallLastBlock) init() {
+	m.data.SetName("polygon.heimdall.last_block")
+	m.data.SetDescription("The current block number.")
+	m.data.SetUnit("block")
+	m.data.SetDataType(pdata.MetricDataTypeSum)
+	m.data.Sum().SetIsMonotonic(false)
+	m.data.Sum().SetAggregationTemporality(pdata.MetricAggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonHeimdallLastBlock) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonHeimdallLastBlock) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonHeimdallLastBlock) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonHeimdallLastBlock(settings MetricSettings) metricPolygonHeimdallLastBlock {
+	m := metricPolygonHeimdallLastBlock{settings: settings}
 	if settings.Enabled {
 		m.data = pdata.NewMetric()
 		m.init()
@@ -472,7 +584,9 @@ type MetricsBuilder struct {
 	metricPolygonBorLastBlock                       metricPolygonBorLastBlock
 	metricPolygonEthStateSync                       metricPolygonEthStateSync
 	metricPolygonEthSubmitCheckpointTime            metricPolygonEthSubmitCheckpointTime
+	metricPolygonHeimdallAverageBlockTime           metricPolygonHeimdallAverageBlockTime
 	metricPolygonHeimdallCheckpointValidatorsSigned metricPolygonHeimdallCheckpointValidatorsSigned
+	metricPolygonHeimdallLastBlock                  metricPolygonHeimdallLastBlock
 	metricPolygonHeimdallTotalTxs                   metricPolygonHeimdallTotalTxs
 	metricPolygonHeimdallUnconfirmedTxs             metricPolygonHeimdallUnconfirmedTxs
 	metricPolygonPolygonStateSync                   metricPolygonPolygonStateSync
@@ -495,7 +609,9 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 		metricPolygonBorLastBlock:                       newMetricPolygonBorLastBlock(settings.PolygonBorLastBlock),
 		metricPolygonEthStateSync:                       newMetricPolygonEthStateSync(settings.PolygonEthStateSync),
 		metricPolygonEthSubmitCheckpointTime:            newMetricPolygonEthSubmitCheckpointTime(settings.PolygonEthSubmitCheckpointTime),
+		metricPolygonHeimdallAverageBlockTime:           newMetricPolygonHeimdallAverageBlockTime(settings.PolygonHeimdallAverageBlockTime),
 		metricPolygonHeimdallCheckpointValidatorsSigned: newMetricPolygonHeimdallCheckpointValidatorsSigned(settings.PolygonHeimdallCheckpointValidatorsSigned),
+		metricPolygonHeimdallLastBlock:                  newMetricPolygonHeimdallLastBlock(settings.PolygonHeimdallLastBlock),
 		metricPolygonHeimdallTotalTxs:                   newMetricPolygonHeimdallTotalTxs(settings.PolygonHeimdallTotalTxs),
 		metricPolygonHeimdallUnconfirmedTxs:             newMetricPolygonHeimdallUnconfirmedTxs(settings.PolygonHeimdallUnconfirmedTxs),
 		metricPolygonPolygonStateSync:                   newMetricPolygonPolygonStateSync(settings.PolygonPolygonStateSync),
@@ -514,7 +630,9 @@ func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
 	mb.metricPolygonBorLastBlock.emit(metrics)
 	mb.metricPolygonEthStateSync.emit(metrics)
 	mb.metricPolygonEthSubmitCheckpointTime.emit(metrics)
+	mb.metricPolygonHeimdallAverageBlockTime.emit(metrics)
 	mb.metricPolygonHeimdallCheckpointValidatorsSigned.emit(metrics)
+	mb.metricPolygonHeimdallLastBlock.emit(metrics)
 	mb.metricPolygonHeimdallTotalTxs.emit(metrics)
 	mb.metricPolygonHeimdallUnconfirmedTxs.emit(metrics)
 	mb.metricPolygonPolygonStateSync.emit(metrics)
@@ -540,9 +658,19 @@ func (mb *MetricsBuilder) RecordPolygonEthSubmitCheckpointTimeDataPoint(ts pdata
 	mb.metricPolygonEthSubmitCheckpointTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
+// RecordPolygonHeimdallAverageBlockTimeDataPoint adds a data point to polygon.heimdall.average_block_time metric.
+func (mb *MetricsBuilder) RecordPolygonHeimdallAverageBlockTimeDataPoint(ts pdata.Timestamp, val float64, chainAttributeValue string) {
+	mb.metricPolygonHeimdallAverageBlockTime.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
 // RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint adds a data point to polygon.heimdall.checkpoint_validators_signed metric.
 func (mb *MetricsBuilder) RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
 	mb.metricPolygonHeimdallCheckpointValidatorsSigned.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
+// RecordPolygonHeimdallLastBlockDataPoint adds a data point to polygon.heimdall.last_block metric.
+func (mb *MetricsBuilder) RecordPolygonHeimdallLastBlockDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	mb.metricPolygonHeimdallLastBlock.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonHeimdallTotalTxsDataPoint adds a data point to polygon.heimdall.total_txs metric.

@@ -15,3 +15,14 @@ type HeimdallUnconfirmedTransactions struct {
 		Total string `json:"total"`
 	} `json:"result"`
 }
+
+type HeimdallBlock struct {
+	Result struct {
+		Block struct {
+			Header struct {
+				Time   string `json:"time"`
+				Height string `json:"height"`
+			} `json:"header"`
+		} `json:"block"`
+	} `json:"result"`
+}

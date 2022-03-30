@@ -16,6 +16,16 @@ metrics:
       monotonic: false
     attributes: [chain]
 
+  polygon.heimdall.last_block:
+    enabled: true
+    description: The current block number.
+    unit: block
+    sum:
+      value_type: int
+      aggregation: cumulative
+      monotonic: false
+    attributes: [chain]
+
   polygon.eth.submit_checkpoint_time:
     enabled: true
     description: Latest checkpoint transaction time.
@@ -33,6 +43,14 @@ metrics:
     attributes: [chain]
   
   polygon.bor.average_block_time:
+    enabled: true
+    description: The average block time.
+    unit: seconds
+    gauge:
+      value_type: double
+    attributes: [chain]
+
+  polygon.heimdall.average_block_time:
     enabled: true
     description: The average block time.
     unit: seconds

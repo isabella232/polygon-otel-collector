@@ -26,6 +26,13 @@ import (
 )
 
 // polygonReceiver implements the component.MetricsReceiver for Ethereum protocol.
+
+var (
+	prev              pdata.Timestamp
+	prevBorBlock      uint64
+	prevHeimdallBlock uint64
+)
+
 type polygonReceiver struct {
 	config            *Config
 	settings          component.ReceiverCreateSettings
@@ -84,9 +91,6 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	return nil
 }
 
-var prev pdata.Timestamp
-var prevBlock uint64
-
 func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	md := pdata.NewMetrics()
 	ilm := md.ResourceMetrics().AppendEmpty().InstrumentationLibraryMetrics().AppendEmpty()
@@ -97,7 +101,8 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 		prev = now
 	}
 
-	r.recordLastBlockMetrics(now, prev)
+	r.recordBorBlockMetrics(now, prev)
+	r.recordHeimdallBlockMetrics(now, prev)
 	r.recordCheckpointMetrics(now)
 	r.recordHeimdallUnconfirmedTransactions(now)
 	r.recordRootChainStateSyncs(now)
@@ -110,26 +115,67 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	return md, nil
 }
 
-func (r *polygonReceiver) recordLastBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
+func (r *polygonReceiver) recordBorBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
 	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
 		return
 	}
 
-	if prevBlock == 0 {
-		prevBlock = number
+	if prev == 0 {
+		prevBorBlock = number
 		return
 	}
 
-	bd := number - prevBlock
+	bd := number - prevBorBlock
 	td := now.AsTime().Sub(prev.AsTime())
 
 	s := td.Seconds()
 	bt := s / float64(bd)
 	r.mb.RecordPolygonBorAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
 	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
-	prevBlock = number
+	prevBorBlock = number
+}
+
+func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
+	// Get checkpoint signatures
+	res, err := http.Get("https://tendermint.api.matic.network/block")
+	if err != nil {
+		r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
+		return
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
+		return
+	}
+
+	block := &HeimdallBlock{}
+	err = json.Unmarshal(body, &block)
+	if err != nil {
+		r.logger.Error("failed to unmarshal block", zap.Error(err))
+		return
+	}
+
+	number, err := strconv.ParseUint(block.Result.Block.Header.Height, 10, 64)
+	if err != nil {
+		r.logger.Error("failed to parse block height", zap.Error(err))
+		return
+	}
+	if prevHeimdallBlock == 0 {
+		prevHeimdallBlock = number
+		return
+	}
+
+	bd := number - prevHeimdallBlock
+	td := now.AsTime().Sub(prev.AsTime())
+
+	s := td.Seconds()
+	bt := s / float64(bd)
+	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
+	prevHeimdallBlock = number
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
