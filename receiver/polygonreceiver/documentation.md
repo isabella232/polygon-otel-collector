@@ -14,6 +14,7 @@ These are the metrics available for this scraper.
 | **polygon.eth.submit_checkpoint_time** | Latest checkpoint transaction time. | seconds | Gauge(Double) | <ul> <li>chain</li> </ul> |
 | **polygon.heimdall.average_block_time** | The average block time. | seconds | Gauge(Double) | <ul> <li>chain</li> </ul> |
 | **polygon.heimdall.checkpoint_validators_signed** | Number of validators who signed last checkpoint. |  | Gauge(Int) | <ul> <li>chain</li> </ul> |
+| **polygon.heimdall.current_span_end_block** | The end block of the current span. | block | Sum(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.heimdall.last_block** | The current block number. | block | Sum(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.heimdall.total_txs** | Total number of transactions. | txs | Gauge(Int) | <ul> <li>chain</li> </ul> |
 | **polygon.heimdall.unconfirmed_txs** | Number of unconfirmed transactions. | txs | Gauge(Int) | <ul> <li>chain</li> </ul> |

@@ -21,6 +21,7 @@ type MetricsSettings struct {
 	PolygonEthSubmitCheckpointTime            MetricSettings `mapstructure:"polygon.eth.submit_checkpoint_time"`
 	PolygonHeimdallAverageBlockTime           MetricSettings `mapstructure:"polygon.heimdall.average_block_time"`
 	PolygonHeimdallCheckpointValidatorsSigned MetricSettings `mapstructure:"polygon.heimdall.checkpoint_validators_signed"`
+	PolygonHeimdallCurrentSpanEndBlock        MetricSettings `mapstructure:"polygon.heimdall.current_span_end_block"`
 	PolygonHeimdallLastBlock                  MetricSettings `mapstructure:"polygon.heimdall.last_block"`
 	PolygonHeimdallTotalTxs                   MetricSettings `mapstructure:"polygon.heimdall.total_txs"`
 	PolygonHeimdallUnconfirmedTxs             MetricSettings `mapstructure:"polygon.heimdall.unconfirmed_txs"`
@@ -45,6 +46,9 @@ func DefaultMetricsSettings() MetricsSettings {
 			Enabled: true,
 		},
 		PolygonHeimdallCheckpointValidatorsSigned: MetricSettings{
+			Enabled: true,
+		},
+		PolygonHeimdallCurrentSpanEndBlock: MetricSettings{
 			Enabled: true,
 		},
 		PolygonHeimdallLastBlock: MetricSettings{
@@ -370,6 +374,59 @@ func newMetricPolygonHeimdallCheckpointValidatorsSigned(settings MetricSettings)
 	return m
 }
 
+type metricPolygonHeimdallCurrentSpanEndBlock struct {
+	data     pdata.Metric   // data buffer for generated metric.
+	settings MetricSettings // metric settings provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills polygon.heimdall.current_span_end_block metric with initial data.
+func (m *metricPolygonHeimdallCurrentSpanEndBlock) init() {
+	m.data.SetName("polygon.heimdall.current_span_end_block")
+	m.data.SetDescription("The end block of the current span.")
+	m.data.SetUnit("block")
+	m.data.SetDataType(pdata.MetricDataTypeSum)
+	m.data.Sum().SetIsMonotonic(false)
+	m.data.Sum().SetAggregationTemporality(pdata.MetricAggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricPolygonHeimdallCurrentSpanEndBlock) recordDataPoint(start pdata.Timestamp, ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	if !m.settings.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntVal(val)
+	dp.Attributes().Insert(A.Chain, pdata.NewAttributeValueString(chainAttributeValue))
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPolygonHeimdallCurrentSpanEndBlock) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPolygonHeimdallCurrentSpanEndBlock) emit(metrics pdata.MetricSlice) {
+	if m.settings.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPolygonHeimdallCurrentSpanEndBlock(settings MetricSettings) metricPolygonHeimdallCurrentSpanEndBlock {
+	m := metricPolygonHeimdallCurrentSpanEndBlock{settings: settings}
+	if settings.Enabled {
+		m.data = pdata.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricPolygonHeimdallLastBlock struct {
 	data     pdata.Metric   // data buffer for generated metric.
 	settings MetricSettings // metric settings provided by user.
@@ -586,6 +643,7 @@ type MetricsBuilder struct {
 	metricPolygonEthSubmitCheckpointTime            metricPolygonEthSubmitCheckpointTime
 	metricPolygonHeimdallAverageBlockTime           metricPolygonHeimdallAverageBlockTime
 	metricPolygonHeimdallCheckpointValidatorsSigned metricPolygonHeimdallCheckpointValidatorsSigned
+	metricPolygonHeimdallCurrentSpanEndBlock        metricPolygonHeimdallCurrentSpanEndBlock
 	metricPolygonHeimdallLastBlock                  metricPolygonHeimdallLastBlock
 	metricPolygonHeimdallTotalTxs                   metricPolygonHeimdallTotalTxs
 	metricPolygonHeimdallUnconfirmedTxs             metricPolygonHeimdallUnconfirmedTxs
@@ -611,6 +669,7 @@ func NewMetricsBuilder(settings MetricsSettings, options ...metricBuilderOption)
 		metricPolygonEthSubmitCheckpointTime:            newMetricPolygonEthSubmitCheckpointTime(settings.PolygonEthSubmitCheckpointTime),
 		metricPolygonHeimdallAverageBlockTime:           newMetricPolygonHeimdallAverageBlockTime(settings.PolygonHeimdallAverageBlockTime),
 		metricPolygonHeimdallCheckpointValidatorsSigned: newMetricPolygonHeimdallCheckpointValidatorsSigned(settings.PolygonHeimdallCheckpointValidatorsSigned),
+		metricPolygonHeimdallCurrentSpanEndBlock:        newMetricPolygonHeimdallCurrentSpanEndBlock(settings.PolygonHeimdallCurrentSpanEndBlock),
 		metricPolygonHeimdallLastBlock:                  newMetricPolygonHeimdallLastBlock(settings.PolygonHeimdallLastBlock),
 		metricPolygonHeimdallTotalTxs:                   newMetricPolygonHeimdallTotalTxs(settings.PolygonHeimdallTotalTxs),
 		metricPolygonHeimdallUnconfirmedTxs:             newMetricPolygonHeimdallUnconfirmedTxs(settings.PolygonHeimdallUnconfirmedTxs),
@@ -632,6 +691,7 @@ func (mb *MetricsBuilder) Emit(metrics pdata.MetricSlice) {
 	mb.metricPolygonEthSubmitCheckpointTime.emit(metrics)
 	mb.metricPolygonHeimdallAverageBlockTime.emit(metrics)
 	mb.metricPolygonHeimdallCheckpointValidatorsSigned.emit(metrics)
+	mb.metricPolygonHeimdallCurrentSpanEndBlock.emit(metrics)
 	mb.metricPolygonHeimdallLastBlock.emit(metrics)
 	mb.metricPolygonHeimdallTotalTxs.emit(metrics)
 	mb.metricPolygonHeimdallUnconfirmedTxs.emit(metrics)
@@ -666,6 +726,11 @@ func (mb *MetricsBuilder) RecordPolygonHeimdallAverageBlockTimeDataPoint(ts pdat
 // RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint adds a data point to polygon.heimdall.checkpoint_validators_signed metric.
 func (mb *MetricsBuilder) RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
 	mb.metricPolygonHeimdallCheckpointValidatorsSigned.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
+}
+
+// RecordPolygonHeimdallCurrentSpanEndBlockDataPoint adds a data point to polygon.heimdall.current_span_end_block metric.
+func (mb *MetricsBuilder) RecordPolygonHeimdallCurrentSpanEndBlockDataPoint(ts pdata.Timestamp, val int64, chainAttributeValue string) {
+	mb.metricPolygonHeimdallCurrentSpanEndBlock.recordDataPoint(mb.startTime, ts, val, chainAttributeValue)
 }
 
 // RecordPolygonHeimdallLastBlockDataPoint adds a data point to polygon.heimdall.last_block metric.

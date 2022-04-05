@@ -88,7 +88,7 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	configuration := datadog.NewConfiguration()
 	r.ddAPIClient = datadog.NewAPIClient(configuration)
 
-	c := NewHeimdallClient("https://tendermint-api.polygon.technology")
+	c := NewHeimdallClient("https://tendermint-api.polygon.technology", "https://heimdall-api.polygon.technology")
 	r.heimdallClient = c
 
 	return nil
@@ -110,6 +110,7 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	r.recordHeimdallUnconfirmedTransactions(now)
 	r.recordRootChainStateSyncs(now)
 	r.recordSideChainStateSyncs(now)
+	r.recordHeimdallEndBlock(now)
 
 	r.mb.Emit(ilm.Metrics())
 
@@ -366,4 +367,15 @@ func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
 		return
 	}
 	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+}
+
+func (r *polygonReceiver) recordHeimdallEndBlock(now pdata.Timestamp) {
+	// Get heimdall end block
+	ls, err := r.heimdallClient.LatestSpan()
+	if err != nil {
+		r.logger.Error("failed to get latest span", zap.Error(err))
+		return
+	}
+
+	r.mb.RecordPolygonHeimdallCurrentSpanEndBlockDataPoint(now, ls.Result.EndBlock, r.config.Chain)
 }

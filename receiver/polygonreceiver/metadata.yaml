@@ -25,6 +25,16 @@ metrics:
       aggregation: cumulative
       monotonic: false
     attributes: [chain]
+  
+  polygon.heimdall.current_span_end_block:
+    enabled: true
+    description: The end block of the current span.
+    unit: block
+    sum:
+      value_type: int
+      aggregation: cumulative
+      monotonic: false
+    attributes: [chain]
 
   polygon.eth.submit_checkpoint_time:
     enabled: true
@@ -89,3 +99,4 @@ metrics:
     gauge:
       value_type: int
     attributes: [chain]
+
