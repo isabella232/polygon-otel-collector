@@ -28,9 +28,8 @@ import (
 // polygonReceiver implements the component.MetricsReceiver for Ethereum protocol.
 
 var (
-	prev              pdata.Timestamp
-	prevBorBlock      uint64
-	prevHeimdallBlock uint64
+	prev         pdata.Timestamp
+	prevBorBlock uint64
 )
 
 type polygonReceiver struct {
@@ -43,6 +42,7 @@ type polygonReceiver struct {
 	logger            *zap.SugaredLogger
 	mb                *metadata.MetricsBuilder
 	ddAPIClient       *datadog.APIClient
+	heimdallClient    *HeimdallClient
 }
 
 // newPolygonReceiver creates the Polygon receiver with the given parameters.
@@ -87,6 +87,9 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 
 	configuration := datadog.NewConfiguration()
 	r.ddAPIClient = datadog.NewAPIClient(configuration)
+
+	c := NewHeimdallClient("https://tendermint-api.polygon.technology")
+	r.heimdallClient = c
 
 	return nil
 }
@@ -139,43 +142,38 @@ func (r *polygonReceiver) recordBorBlockMetrics(now pdata.Timestamp, prev pdata.
 
 func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
 	// Get checkpoint signatures
-	res, err := http.Get("https://tendermint.api.matic.network/block")
+	block, err := r.heimdallClient.Block(nil)
 	if err != nil {
-		r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
-		return
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		r.logger.Error("failed to read checkpoint signatures", zap.Error(err))
+		r.logger.Error("failed to get block", zap.Error(err))
 		return
 	}
 
-	block := &HeimdallBlock{}
-	err = json.Unmarshal(body, &block)
-	if err != nil {
-		r.logger.Error("failed to unmarshal block", zap.Error(err))
-		return
-	}
-
-	number, err := strconv.ParseUint(block.Result.Block.Header.Height, 10, 64)
+	lb, err := strconv.ParseInt(block.Result.Block.Header.Height, 10, 64)
 	if err != nil {
 		r.logger.Error("failed to parse block height", zap.Error(err))
 		return
 	}
-	if prevHeimdallBlock == 0 {
-		prevHeimdallBlock = number
+	pbs := strconv.FormatInt(lb-1, 10)
+	prevBlock, err := r.heimdallClient.Block(&pbs)
+	if err != nil {
+		r.logger.Error("failed to get block", zap.Error(err))
 		return
 	}
 
-	bd := number - prevHeimdallBlock
-	td := now.AsTime().Sub(prev.AsTime())
+	bt1, err := time.Parse(time.RFC3339Nano, block.Result.Block.Header.Time)
+	if err != nil {
+		r.logger.Error("failed to parse time", zap.Error(err))
+		return
+	}
+	bt2, err := time.Parse(time.RFC3339Nano, prevBlock.Result.Block.Header.Time)
+	if err != nil {
+		r.logger.Error("failed to parse time", zap.Error(err))
+		return
+	}
+	bt := bt1.Sub(bt2)
 
-	s := td.Seconds()
-	bt := s / float64(bd)
-	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
-	prevHeimdallBlock = number
+	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt.Seconds(), "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, lb, "polygon"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
