@@ -88,7 +88,7 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	configuration := datadog.NewConfiguration()
 	r.ddAPIClient = datadog.NewAPIClient(configuration)
 
-	c := NewHeimdallClient("https://tendermint-api.polygon.technology", "https://heimdall-api.polygon.technology")
+	c := NewHeimdallClient("https://tendermint.api.matic.network", "https://heimdall-api.polygon.technology")
 	r.heimdallClient = c
 
 	return nil
@@ -276,7 +276,7 @@ func (r *polygonReceiver) checkpointSignaturesDatadogEvent(signedCount int64) er
 
 func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timestamp) {
 	// Get heimdall unconfirmed transactions
-	res, err := http.Get(fmt.Sprintf("https://tendermint.api.matic.network/num_unconfirmed_txs"))
+	res, err := http.Get("https://tendermint.api.matic.network/num_unconfirmed_txs")
 	if err != nil {
 		r.logger.Error("failed to get unconfirmed transactions", zap.Error(err))
 		return
