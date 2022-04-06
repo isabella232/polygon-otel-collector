@@ -55,7 +55,7 @@ func newPolygonReceiver(
 	recv := polygonReceiver{
 		config:   config,
 		settings: set,
-		logger:   zap.L().Sugar(),
+		logger:   set.Logger.Sugar(),
 		mb:       metadata.NewMetricsBuilder(metadata.DefaultMetricsSettings()),
 	}
 
