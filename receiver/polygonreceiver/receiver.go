@@ -174,7 +174,7 @@ func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp, prev p
 	bt := bt1.Sub(bt2)
 
 	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt.Seconds(), "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, lb, "polygon"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, lb, "polygon-"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
@@ -217,7 +217,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 			return
 		}
 		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
+		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-"+r.config.Chain)
 		////
 
 		// Get checkpoint signatures
@@ -242,9 +242,9 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 
 		for _, signature := range signatures.Result {
 			if signature.HasSigned {
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, r.config.Chain, signature.SignerAddress)
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, "polygon-"+r.config.Chain, signature.SignerAddress)
 			} else {
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsNotSignedDataPoint(now, 1, r.config.Chain, signature.SignerAddress)
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsNotSignedDataPoint(now, 1, "polygon-"+r.config.Chain, signature.SignerAddress)
 			}
 		}
 	} else {
@@ -306,8 +306,8 @@ func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timest
 		return
 	}
 
-	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, r.config.Chain)
-	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, r.config.Chain)
+	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, "polygon-"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
