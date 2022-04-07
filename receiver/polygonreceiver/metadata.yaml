@@ -4,6 +4,8 @@ name: polygonreceiver
 attributes:
   chain:
     description: The name of a chain.
+  validator:
+    description: The address of a validator.
 
 metrics:
   polygon.bor.last_block:
@@ -47,10 +49,16 @@ metrics:
   polygon.heimdall.checkpoint_validators_signed:
     enabled: true
     description: Number of validators who signed last checkpoint.
-    # unit: seconds
     gauge:
       value_type: int
-    attributes: [chain]
+    attributes: [chain, validator]
+  
+  polygon.heimdall.checkpoint_validators_not_signed:
+    enabled: true
+    description: Number of validators who not signed last checkpoint.
+    gauge:
+      value_type: int
+    attributes: [chain, validator]
   
   polygon.bor.average_block_time:
     enabled: true

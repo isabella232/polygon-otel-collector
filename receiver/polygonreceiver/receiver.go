@@ -212,6 +212,10 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 
 		////
 		b, err := r.ethClient.Eth().GetBlockByNumber(ethgo.BlockNumber(log.BlockNumber), true)
+		if err != nil {
+			r.logger.Error("failed to get block", zap.Error(err))
+			return
+		}
 		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
 		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-mainnet")
 		////
@@ -235,18 +239,14 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 			r.logger.Error("failed to unmarshal checkpoint signatures", zap.Error(err))
 			return
 		}
-		var signedCount int64
+
 		for _, signature := range signatures.Result {
 			if signature.HasSigned {
-				signedCount++
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, r.config.Chain, signature.SignerAddress)
+			} else {
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsNotSignedDataPoint(now, 1, r.config.Chain, signature.SignerAddress)
 			}
 		}
-		r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, signedCount, r.config.Chain)
-
-		if signedCount < 90 {
-			r.checkpointSignaturesDatadogEvent(signedCount)
-		}
-
 	} else {
 		r.logger.Error("failed to get logs", zap.Error(err))
 	}
