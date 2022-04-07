@@ -243,10 +243,8 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		for _, signature := range signatures.Result {
 			if signature.HasSigned {
 				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, "polygon-"+r.config.Chain, signature.SignerAddress)
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsNotSignedDataPoint(now, 0, "polygon-"+r.config.Chain, signature.SignerAddress)
 			} else {
 				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 0, "polygon-"+r.config.Chain, signature.SignerAddress)
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsNotSignedDataPoint(now, 1, "polygon-"+r.config.Chain, signature.SignerAddress)
 			}
 		}
 	} else {

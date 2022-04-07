@@ -53,13 +53,6 @@ metrics:
       value_type: int
     attributes: [chain, validator]
   
-  polygon.heimdall.checkpoint_validators_not_signed:
-    enabled: true
-    description: Number of validators who not signed last checkpoint.
-    gauge:
-      value_type: int
-    attributes: [chain, validator]
-  
   polygon.bor.average_block_time:
     enabled: true
     description: The average block time.
