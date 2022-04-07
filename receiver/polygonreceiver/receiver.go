@@ -366,7 +366,7 @@ func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
 		r.logger.Error("failed to parse last state id", zap.Error(err))
 		return
 	}
-	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "polygon-"+r.config.Chain)
 }
 
 func (r *polygonReceiver) recordHeimdallEndBlock(now pdata.Timestamp) {
