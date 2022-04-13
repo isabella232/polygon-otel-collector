@@ -27,11 +27,6 @@ import (
 
 // polygonReceiver implements the component.MetricsReceiver for Ethereum protocol.
 
-var (
-	prev         pdata.Timestamp
-	prevBorBlock uint64
-)
-
 type polygonReceiver struct {
 	config            *Config
 	settings          component.ReceiverCreateSettings
@@ -100,12 +95,9 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 	ilm.InstrumentationLibrary().SetName("otelcol/polygon")
 
 	now := pdata.NewTimestampFromTime(time.Now())
-	if prev == 0 {
-		prev = now
-	}
 
-	r.recordBorBlockMetrics(now, prev)
-	r.recordHeimdallBlockMetrics(now, prev)
+	r.recordBorBlockMetrics(now)
+	r.recordHeimdallBlockMetrics(now)
 	r.recordCheckpointMetrics(now)
 	r.recordHeimdallUnconfirmedTransactions(now)
 	r.recordRootChainStateSyncs(now)
@@ -114,34 +106,33 @@ func (r *polygonReceiver) scrape(ctx context.Context) (pdata.Metrics, error) {
 
 	r.mb.Emit(ilm.Metrics())
 
-	prev = now
-
 	return md, nil
 }
 
-func (r *polygonReceiver) recordBorBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
+func (r *polygonReceiver) recordBorBlockMetrics(now pdata.Timestamp) {
 	number, err := r.polygonClient.Eth().BlockNumber()
 	if err != nil {
 		r.logger.Error("failed to get block number", zap.Error(err))
 		return
 	}
 
-	if prev == 0 {
-		prevBorBlock = number
+	pn, err := r.polygonClient.Eth().GetBlockByNumber(ethgo.BlockNumber(number-600), true)
+	if err != nil {
+		r.logger.Error("failed to get block number", zap.Error(err))
 		return
 	}
 
-	bd := number - prevBorBlock
-	td := now.AsTime().Sub(prev.AsTime())
-
+	pt := time.Unix(int64(pn.Timestamp), 0)
+	//bd := number - prevBorBlock
+	td := now.AsTime().Sub(pt)
 	s := td.Seconds()
-	bt := s / float64(bd)
+	bt := s / 600
+
 	r.mb.RecordPolygonBorAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
 	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
-	prevBorBlock = number
 }
 
-func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp, prev pdata.Timestamp) {
+func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp) {
 	// Get checkpoint signatures
 	block, err := r.heimdallClient.Block(nil)
 	if err != nil {
