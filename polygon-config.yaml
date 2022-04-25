@@ -4,13 +4,33 @@ receivers:
       grpc:
         endpoint: localhost:55680
 
-  polygon:
+  polygon/mainnet:
     ethereum_jsonrpc_endpoint: "${ETHEREUM_JSONRPC_ENDPOINT}"
     polygon_jsonrpc_endpoint: "${POLYGON_JSONRPC_ENDPOINT}"
     polygonscan_api_key: "${POLYGONSCAN_API_KEY}"
     etherscan_api_key: "${ETHERSCAN_API_KEY}"
     datadog_api_key: "${POLYGON_OTEL_COLLECTOR_DD_API_KEY}"
+    tendermint_endpoint: "https://tendermint.api.matic.network"
+    heimdal_endpoint: "https://heimdal.api.matic.network"
+    sentinel_endpoint: "https://sentinel.matic.network"
+    root_chain_proxy_contract: "0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287"
+    state_sender_contract: "0x28e4F3a7f651294B9564800b2D01f35189A5bFbE"
+    state_receiver_contract: "0x0000000000000000000000000000000000001001"
     chain: "mainnet"
+  
+  polygon/testnet:
+    ethereum_jsonrpc_endpoint: "${TESTNET_ETHEREUM_JSONRPC_ENDPOINT}"
+    polygon_jsonrpc_endpoint: "${TESTNET_POLYGON_JSONRPC_ENDPOINT}"
+    polygonscan_api_key: "${TESTNET_POLYGONSCAN_API_KEY}"
+    etherscan_api_key: "${TESTNET_ETHERSCAN_API_KEY}"
+    datadog_api_key: "${POLYGON_OTEL_COLLECTOR_DD_API_KEY}"
+    tendermint_endpoint: "https://tendermint.api.matic.today"
+    heimdal_endpoint: "https://heimdall.api.matic.today"
+    sentinel_endpoint: "https://sentinel.matic.network"
+    root_chain_proxy_contract: "0x2890bA17EfE978480615e330ecB65333b880928e"
+    state_sender_contract: "0xEAa852323826C71cd7920C3b4c007184234c3945"
+    state_receiver_contract: "0x0000000000000000000000000000000000001001"
+    chain: "testnet"
 
   gethinfluxdb:
     token: "${POLYGON_OTEL_COLLECTOR_INFLUXDB_TOKEN}"
@@ -39,7 +59,8 @@ service:
     metrics:
       receivers:
         - gethinfluxdb
-        - polygon
+        - polygon/mainnet
+        - polygon/testnet
       processors: []
       exporters:
         - logging

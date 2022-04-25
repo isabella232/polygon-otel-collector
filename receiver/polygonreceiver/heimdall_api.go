@@ -66,3 +66,23 @@ func (h *HeimdallClient) LatestSpan() (*HeimdallSpan, error) {
 
 	return span, nil
 }
+
+func (h *HeimdallClient) UnconfirmedTransactions() (*HeimdallUnconfirmedTransactions, error) {
+	res, err := http.Get(h.tendermintApiUrl + "/num_unconfirmed_txs")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unconfirmed transactions: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read unconfirmed transactions: %w", err)
+	}
+
+	transactions := &HeimdallUnconfirmedTransactions{}
+	err = json.Unmarshal(body, &transactions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal unconfirmed transactions: %w", err)
+	}
+
+	return transactions, nil
+}

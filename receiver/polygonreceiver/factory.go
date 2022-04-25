@@ -13,8 +13,7 @@ import (
 
 const (
 	// The value of "type" key in configuration.
-	typeStr               = "polygon"
-	defaultEncodingFormat = "json"
+	typeStr = "polygon"
 )
 
 // NewFactory creates a factory for Elastic exporter.
