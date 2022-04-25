@@ -83,7 +83,7 @@ func (r *polygonReceiver) start(ctx context.Context, _ component.Host) error {
 	configuration := datadog.NewConfiguration()
 	r.ddAPIClient = datadog.NewAPIClient(configuration)
 
-	c := NewHeimdallClient("https://tendermint.api.matic.network", "https://heimdall-api.polygon.technology")
+	c := NewHeimdallClient(r.config.TendermintEndpoint, r.config.HeimdalEndpoint)
 	r.heimdallClient = c
 
 	return nil
@@ -128,8 +128,8 @@ func (r *polygonReceiver) recordBorBlockMetrics(now pdata.Timestamp) {
 	s := td.Seconds()
 	bt := s / 600
 
-	r.mb.RecordPolygonBorAverageBlockTimeDataPoint(now, bt, "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), "polygon"+r.config.Chain)
+	r.mb.RecordPolygonBorAverageBlockTimeDataPoint(now, bt, r.config.Chain)
+	r.mb.RecordPolygonBorLastBlockDataPoint(now, int64(number), r.config.Chain)
 }
 
 func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp) {
@@ -164,8 +164,8 @@ func (r *polygonReceiver) recordHeimdallBlockMetrics(now pdata.Timestamp) {
 	}
 	bt := bt1.Sub(bt2)
 
-	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt.Seconds(), "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, lb, "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallAverageBlockTimeDataPoint(now, bt.Seconds(), r.config.Chain)
+	r.mb.RecordPolygonHeimdallLastBlockDataPoint(now, lb, r.config.Chain)
 }
 
 func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
@@ -185,7 +185,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
 		From:    &bnp,
 		To:      &lbp,
-		Address: []ethgo.Address{ethgo.HexToAddress("0x86E4Dc95c7FBdBf52e33D563BbDB00823894C287")},
+		Address: []ethgo.Address{ethgo.HexToAddress(r.config.RootChainProxyContract)},
 		Topics:  [][]*ethgo.Hash{topics},
 	})
 	if err == nil && len(logs) > 0 {
@@ -212,7 +212,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 		////
 
 		// Get checkpoint signatures
-		res, err := http.Get(fmt.Sprintf("https://sentinel.matic.network/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
+		res, err := http.Get(fmt.Sprintf(r.config.SentinelEndpoint+"/api/v2/monitor/checkpoint-signatures/checkpoint/%s", hbiTrim))
 		if err != nil {
 			r.logger.Error("failed to get checkpoint signatures", zap.Error(err))
 			return
@@ -233,9 +233,9 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 
 		for _, signature := range signatures.Result {
 			if signature.HasSigned {
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, "polygon-"+r.config.Chain, signature.SignerAddress)
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 1, r.config.Chain, signature.SignerAddress)
 			} else {
-				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 0, "polygon-"+r.config.Chain, signature.SignerAddress)
+				r.mb.RecordPolygonHeimdallCheckpointValidatorsSignedDataPoint(now, 0, r.config.Chain, signature.SignerAddress)
 			}
 		}
 	} else {
@@ -267,22 +267,9 @@ func (r *polygonReceiver) checkpointSignaturesDatadogEvent(signedCount int64) er
 
 func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timestamp) {
 	// Get heimdall unconfirmed transactions
-	res, err := http.Get("https://tendermint.api.matic.network/num_unconfirmed_txs")
+	transactions, err := r.heimdallClient.UnconfirmedTransactions()
 	if err != nil {
 		r.logger.Error("failed to get unconfirmed transactions", zap.Error(err))
-		return
-	}
-	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		r.logger.Error("failed to read unconfirmed transactions", zap.Error(err))
-		return
-	}
-
-	transactions := &HeimdallUnconfirmedTransactions{}
-	err = json.Unmarshal(body, &transactions)
-	if err != nil {
-		r.logger.Error("failed to unmarshal unconfirmed transactions", zap.Error(err))
 		return
 	}
 
@@ -297,8 +284,8 @@ func (r *polygonReceiver) recordHeimdallUnconfirmedTransactions(now pdata.Timest
 		return
 	}
 
-	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, "polygon-"+r.config.Chain)
-	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonHeimdallUnconfirmedTxsDataPoint(now, utxs, r.config.Chain)
+	r.mb.RecordPolygonHeimdallTotalTxsDataPoint(now, ttxs, r.config.Chain)
 }
 
 func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
@@ -315,7 +302,7 @@ func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
 	logs, err := r.ethClient.Eth().GetLogs(&ethgo.LogFilter{
 		From:    &bnp,
 		To:      &lbp,
-		Address: []ethgo.Address{ethgo.HexToAddress("0x28e4F3a7f651294B9564800b2D01f35189A5bFbE")},
+		Address: []ethgo.Address{ethgo.HexToAddress(r.config.StateSenderContract)},
 	})
 
 	if err == nil && len(logs) > 0 {
@@ -327,7 +314,7 @@ func (r *polygonReceiver) recordRootChainStateSyncs(now pdata.Timestamp) {
 			return
 		}
 		id := event["id"].(*big.Int)
-		r.mb.RecordPolygonEthStateSyncDataPoint(now, id.Int64(), "ethereum-"+r.config.Chain)
+		r.mb.RecordPolygonEthStateSyncDataPoint(now, id.Int64(), r.config.Chain)
 	}
 }
 
@@ -343,9 +330,9 @@ func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
 	}
 
 	// Matic token
-	addr := ethgo.HexToAddress("0x0000000000000000000000000000000000001001")
+	addr := ethgo.HexToAddress(r.config.StateReceiverContract)
 
-	c := contract.NewContract(addr, abiContract, r.polygonClient)
+	c := contract.NewContract(addr, abiContract, contract.WithJsonRPC(r.polygonClient.Eth()))
 	res, err := c.Call("lastStateId", ethgo.Latest)
 	if err != nil {
 		r.logger.Error("failed to get last state id", zap.Error(err))
@@ -357,7 +344,7 @@ func (r *polygonReceiver) recordSideChainStateSyncs(now pdata.Timestamp) {
 		r.logger.Error("failed to parse last state id", zap.Error(err))
 		return
 	}
-	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), "polygon-"+r.config.Chain)
+	r.mb.RecordPolygonPolygonStateSyncDataPoint(now, id.Int64(), r.config.Chain)
 }
 
 func (r *polygonReceiver) recordHeimdallEndBlock(now pdata.Timestamp) {
