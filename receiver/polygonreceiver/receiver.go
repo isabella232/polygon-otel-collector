@@ -208,7 +208,7 @@ func (r *polygonReceiver) recordCheckpointMetrics(now pdata.Timestamp) {
 			return
 		}
 		txd := now.AsTime().Sub(time.Unix(int64(b.Timestamp), 0))
-		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), "ethereum-"+r.config.Chain)
+		r.mb.RecordPolygonEthSubmitCheckpointTimeDataPoint(now, txd.Seconds(), r.config.Chain)
 		////
 
 		// Get checkpoint signatures
